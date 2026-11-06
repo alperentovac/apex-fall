@@ -69,7 +69,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px 20px;
+      padding: 16px 20px 10px 20px;
     }
 
     /* Top HUD: Exactly matching 1.png */
@@ -100,6 +100,16 @@
       color: #00f0ff;
       line-height: 1;
       text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+      transition: color 0.2s ease;
+    }
+    .hud-speed-val.boosted {
+      color: #ffe600;
+      text-shadow: 0 0 16px #ffe600;
+      animation: speedPulse 0.4s alternate infinite;
+    }
+    @keyframes speedPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.1); }
     }
     .hud-speed-meter {
       display: flex;
@@ -197,15 +207,160 @@
       text-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
     }
 
-    /* Bottom Controller Widget: Exactly matching 1.png */
+    /* 4-Way Cyber Controller & Navigation Guidance: Left/Right/Up/Down */
     .bottom-controller {
       display: flex;
       flex-direction: column;
       align-items: center;
       pointer-events: auto;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
       z-index: 5;
+      gap: 6px;
     }
+
+    /* 4-Way D-Pad Layout */
+    .dpad-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .dpad-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dpad-btn {
+      position: relative;
+      background: rgba(14, 8, 32, 0.82);
+      border: 1.5px solid rgba(0, 240, 255, 0.35);
+      border-radius: 12px;
+      color: #ffffff;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 12px;
+      transition: all 0.12s ease;
+      touch-action: manipulation;
+    }
+    .dpad-btn:active, .dpad-btn.active {
+      transform: scale(0.92);
+      background: rgba(0, 240, 255, 0.3);
+      border-color: #ffffff;
+    }
+
+    /* Up / Süzül (W / Yukarı Ok) */
+    .dpad-up {
+      width: 130px;
+      height: 38px;
+      border-color: rgba(0, 240, 255, 0.5);
+    }
+    .dpad-up.active {
+      background: linear-gradient(180deg, rgba(0, 240, 255, 0.45), rgba(168, 85, 247, 0.2));
+      border-color: #00f0ff;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.7);
+    }
+
+    /* Down / Dalış (S / Aşağı Ok) */
+    .dpad-down {
+      width: 130px;
+      height: 38px;
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+    .dpad-down.active {
+      background: linear-gradient(180deg, rgba(255, 68, 0, 0.5), rgba(245, 158, 11, 0.25));
+      border-color: #ffaa00;
+      box-shadow: 0 0 16px rgba(255, 100, 0, 0.75);
+    }
+
+    /* Left / Sol (A / Sol Ok) */
+    .dpad-left {
+      width: 85px;
+      height: 44px;
+      border-color: rgba(0, 240, 255, 0.4);
+    }
+    .dpad-left.guided {
+      border-color: #00f0ff;
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.9);
+      animation: guidePulseCyan 0.35s infinite alternate ease-in-out;
+    }
+    @keyframes guidePulseCyan {
+      from { transform: scale(1); background: rgba(0, 240, 255, 0.2); }
+      to { transform: scale(1.08); background: rgba(0, 240, 255, 0.45); }
+    }
+
+    /* Right / Sağ (D / Sağ Ok) */
+    .dpad-right {
+      width: 85px;
+      height: 44px;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .dpad-right.guided {
+      border-color: #f59e0b;
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.9);
+      animation: guidePulseGold 0.35s infinite alternate ease-in-out;
+    }
+    @keyframes guidePulseGold {
+      from { transform: scale(1); background: rgba(245, 158, 11, 0.2); }
+      to { transform: scale(1.08); background: rgba(245, 158, 11, 0.45); }
+    }
+
+    /* Center Guide Status Badge */
+    .dpad-center {
+      width: 90px;
+      height: 44px;
+      background: rgba(8, 4, 20, 0.7);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .dpad-center.safe {
+      border-color: #39ff14;
+      border-style: solid;
+      box-shadow: 0 0 14px rgba(57, 255, 20, 0.5);
+    }
+    .dpad-guide-text {
+      font-family: 'Orbitron', monospace;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: #39ff14;
+    }
+    .dpad-guide-sub {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    .dpad-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+    .dpad-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      margin-top: 1px;
+    }
+    .dpad-key {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    /* Arc Dial & Instructions */
     .steering-widget {
       display: flex;
       flex-direction: column;
@@ -214,8 +369,8 @@
     }
     .steering-dial {
       position: relative;
-      width: 140px;
-      height: 70px;
+      width: 120px;
+      height: 52px;
     }
     .steering-svg {
       width: 100%;
@@ -224,57 +379,29 @@
     }
     .steering-marker {
       position: absolute;
-      top: 14px;
-      left: 70px;
-      width: 12px;
-      height: 12px;
-      margin-left: -6px;
-      margin-top: -6px;
+      top: 10px;
+      left: 60px;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      margin-top: -5px;
       border-radius: 50%;
       background: #ffffff;
-      box-shadow: 0 0 12px #ffffff, 0 0 20px #00f0ff;
+      box-shadow: 0 0 10px #ffffff, 0 0 16px #00f0ff;
       pointer-events: none;
       transition: transform 0.08s ease-out;
     }
     .steering-instructions {
       text-align: center;
-      margin-top: 4px;
-    }
-    .ctrl-title {
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-      color: #e2e8f0;
-      letter-spacing: 1.5px;
-      line-height: 1.2;
+      margin-top: 2px;
     }
     .ctrl-desc {
       font-family: 'Rajdhani', sans-serif;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      color: #ffffff;
-      letter-spacing: 1.2px;
-      line-height: 1.25;
-    }
-
-    .btn-tilt-toggle {
-      background: rgba(14, 8, 30, 0.7);
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      color: #00f0ff;
-      font-family: 'Orbitron', monospace;
-      font-size: 10px;
-      font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 12px;
-      cursor: pointer;
-      backdrop-filter: blur(4px);
-      margin-top: 6px;
-      transition: all 0.15s ease;
-    }
-    .btn-tilt-toggle.active {
-      background: #00f0ff;
-      color: #04020a;
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+      color: #cbd5e1;
+      letter-spacing: 1px;
+      line-height: 1.15;
     }
 
     #screen-msg {
@@ -314,15 +441,15 @@
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
     <div id="ui-overlay">
-      <!-- Top HUD matching 1.png -->
+      <!-- Top HUD matching 1.png with speed multiplier progression -->
       <div class="hud-top">
         <div class="hud-stat-left">
           <div class="hud-label">HIZ</div>
-          <div class="hud-speed-val" id="hud-speed">x2.8</div>
+          <div class="hud-speed-val" id="hud-speed">x1.0</div>
           <div class="hud-speed-meter" id="hud-speed-meter">
             <span class="speed-tick active" id="tick-1"></span>
-            <span class="speed-tick active" id="tick-2"></span>
-            <span class="speed-tick active" id="tick-3"></span>
+            <span class="speed-tick" id="tick-2"></span>
+            <span class="speed-tick" id="tick-3"></span>
             <span class="speed-tick" id="tick-4"></span>
           </div>
         </div>
@@ -338,45 +465,72 @@
         </div>
       </div>
 
-      <!-- Bottom Controller widget matching 1.png -->
+      <!-- Bottom 4-Way Cyber Controller & Guidance (Sol / Sağ / Yukarı / Aşağı + WASD) -->
       <div class="bottom-controller">
+        <div class="dpad-cluster">
+          <!-- Yukarı: W / Süzül (Air-Brake Glide) -->
+          <button class="dpad-btn dpad-up" id="btn-up" title="Süzül / Yavaşla (W veya Yukarı Ok)">
+            <span class="dpad-icon">▲</span>
+            <span class="dpad-label">W • SÜZÜL</span>
+          </button>
+
+          <!-- Orta Sıra: Sol (A) - Güvenli Yol Rehberi - Sağ (D) -->
+          <div class="dpad-row">
+            <button class="dpad-btn dpad-left" id="btn-left" title="Sola Süzül (A veya Sol Ok)">
+              <span class="dpad-icon">◀</span>
+              <span class="dpad-label">A • SOL</span>
+            </button>
+
+            <!-- Dinamik Güvenli Yol Rehber Rozeti (Okları takip et -> engelsiz geç!) -->
+            <div class="dpad-center" id="dpad-center">
+              <div class="dpad-guide-text" id="dpad-guide-text">HİZALAN</div>
+              <div class="dpad-guide-sub" id="dpad-guide-sub">GÜVENLİ YOL</div>
+            </div>
+
+            <button class="dpad-btn dpad-right" id="btn-right" title="Sağa Süzül (D veya Sağ Ok)">
+              <span class="dpad-icon">▶</span>
+              <span class="dpad-label">D • SAĞ</span>
+            </button>
+          </div>
+
+          <!-- Aşağı: S / Dalış (Slam Dive) -->
+          <button class="dpad-btn dpad-down" id="btn-down" title="Hızlı Dalış Yap (S veya Aşağı Ok)">
+            <span class="dpad-icon">▼</span>
+            <span class="dpad-label">S • DALIŞ</span>
+          </button>
+        </div>
+
+        <!-- 1.png Yay İbresi & Kaydırma İpucu -->
         <div class="steering-widget" id="steering-widget">
           <div class="steering-dial">
-            <svg class="steering-svg" viewBox="0 0 140 70">
+            <svg class="steering-svg" viewBox="0 0 120 52">
               <defs>
                 <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feGaussianBlur stdDeviation="2" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
                 <filter id="glow-gold" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feGaussianBlur stdDeviation="2" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
               </defs>
-              <!-- Left Cyan Arc -->
-              <path d="M 22 58 A 48 48 0 0 1 70 12" stroke="#00f0ff" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#glow-cyan)" />
-              <!-- Right Golden Arc -->
-              <path d="M 70 12 A 48 48 0 0 1 118 58" stroke="#f59e0b" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#glow-gold)" />
-              <!-- Left Cyan Arrow Indicator -->
-              <polygon points="12,52 24,44 24,60" fill="#00f0ff" filter="url(#glow-cyan)" />
-              <!-- Right Golden Arrow Indicator -->
-              <polygon points="128,52 116,44 116,60" fill="#f59e0b" filter="url(#glow-gold)" />
+              <path d="M 18 44 A 42 42 0 0 1 60 10" stroke="#00f0ff" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#glow-cyan)" />
+              <path d="M 60 10 A 42 42 0 0 1 102 44" stroke="#f59e0b" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#glow-gold)" />
+              <polygon points="10,40 20,34 20,46" fill="#00f0ff" />
+              <polygon points="110,40 100,34 100,46" fill="#f59e0b" />
             </svg>
             <div class="steering-marker" id="steering-marker"></div>
           </div>
           <div class="steering-instructions">
-            <div class="ctrl-title">KONTROL:</div>
-            <div class="ctrl-desc">ÇEVREDE KAYDIRARAK</div>
-            <div class="ctrl-desc">SOL / SAĞA SÜREKLİ HAREKET ET</div>
+            <div class="ctrl-desc">DOKUNMATİKTE 4 YÖNE KAYDIR / WASD İLE YÖNET</div>
           </div>
         </div>
-        <button id="btn-tilt" class="btn-tilt-toggle" title="Jiroskop Kontrolü">📱 TİLT: KAPALI</button>
       </div>
 
       <div id="screen-msg"></div>

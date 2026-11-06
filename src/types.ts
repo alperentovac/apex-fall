@@ -114,6 +114,13 @@ export interface Player {
   // Fast fall state for juice/camera
   isFallingFast: boolean;
 
+  // 4-Way Action States
+  isDiving?: boolean;
+  diveTimer?: number;
+  isGliding?: boolean;
+  glideTimer?: number;
+  speedMultiplier?: number;
+
   // Visual trail
   trailHistory: Array<{ x: number; y: number; alpha: number; scale: number; isMeteor: boolean }>;
   trailAngles?: Array<{ angle: number; alpha: number; isMeteor: boolean }>;

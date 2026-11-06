@@ -56,15 +56,53 @@ export class PhysicsEngine {
       }
     }
 
-    // Progressive speed scaling: starts gentle, accelerates with depth and gap streak, capped at maxTerminalVelocity
-    const depthProgress = Math.min(player.currentDepth * 0.008, 0.4);
-    const effectiveGravity = this.baseGravity * (1 + depthProgress);
+    // 4-Way Action Timers Update
+    if (player.diveTimer && player.diveTimer > 0) {
+      player.diveTimer -= dt;
+      if (player.diveTimer <= 0) {
+        player.isDiving = false;
+        player.diveTimer = 0;
+      }
+    }
 
-    const speedBonusFromDepth = Math.min(player.currentDepth * 6, 260);
-    const speedBonusFromStreak = Math.min(player.consecutiveGaps * 18, 160);
-    const effectiveTerminalVelocity = player.isMeteor
-      ? this.meteorDiveSpeed
-      : Math.min(this.maxTerminalVelocity, this.baseTerminalVelocity + speedBonusFromDepth + speedBonusFromStreak);
+    if (player.glideTimer && player.glideTimer > 0) {
+      player.glideTimer -= dt;
+      if (player.glideTimer <= 0) {
+        player.isGliding = false;
+        player.glideTimer = 0;
+      }
+    }
+
+    // Progression: +0.1 speed every 10 steps (combo streak / passed rings)
+    // Starts at normal comfortable speed 1.0x, increases smoothly by +0.1x per 10 steps, capped at a humanly playable max 1.9x
+    const stepCount = player.perfectDropStreak || player.consecutiveGaps || 0;
+    const comboTier = Math.floor(stepCount / 10);
+    const comboSpeedMultiplier = Math.min(1.9, 1.0 + comboTier * 0.1);
+    player.speedMultiplier = comboSpeedMultiplier;
+
+    const depthProgress = Math.min(player.currentDepth * 0.008, 0.35);
+    let effectiveGravity = this.baseGravity * comboSpeedMultiplier * (1 + depthProgress);
+    let effectiveTerminalVelocity = Math.min(
+      this.maxTerminalVelocity,
+      this.baseTerminalVelocity * comboSpeedMultiplier + player.currentDepth * 4
+    );
+
+    // Apply 4-Way Action Modifiers:
+    if (player.isDiving) {
+      // SLAM DIVE (AŞAĞI / S / Down Arrow / Swipe Down): Explosive dive burst
+      effectiveGravity *= 2.4;
+      effectiveTerminalVelocity = Math.min(this.maxTerminalVelocity, effectiveTerminalVelocity * 1.55);
+      player.vy = Math.max(player.vy, 680);
+    } else if (player.isGliding) {
+      // AIR-BRAKE GLIDE (YUKARI / W / Up Arrow / Swipe Up): Gentle anti-gravity deceleration
+      effectiveGravity *= 0.35;
+      effectiveTerminalVelocity = Math.max(180, effectiveTerminalVelocity * 0.55);
+      player.vy = Math.min(player.vy, effectiveTerminalVelocity);
+    }
+
+    if (player.isMeteor) {
+      effectiveTerminalVelocity = this.meteorDiveSpeed;
+    }
 
     player.vy += effectiveGravity * dt;
     if (player.vy > effectiveTerminalVelocity) {
@@ -261,14 +299,36 @@ export class PhysicsEngine {
 
     const blockHalfWidth = 0.55; // ~31.5° (compact golden block as in 1.png)
     if (diff <= blockHalfWidth) {
-      if (player.isMeteor) {
+      if (player.isMeteor || player.isDiving) {
         return { hit: true, ring, segment: targetSegment, action: 'SMASH' };
+      }
+      if (player.isGliding) {
+        // Air-Brake Glide energy shield absorbs the hit safely
+        return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
       }
       return { hit: true, ring, segment: targetSegment, action: 'CRASH' };
     }
 
     // Dodged the small golden obstacle: safely flows through the wide opening!
     return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
+  }
+
+  public triggerSlamDive(player: Player): void {
+    player.isDiving = true;
+    player.diveTimer = 0.45;
+    player.scaleX = 0.7;
+    player.scaleY = 1.45;
+    player.vy = Math.max(player.vy, 720);
+    sound.playShatter();
+  }
+
+  public triggerAirGlide(player: Player): void {
+    player.isGliding = true;
+    player.glideTimer = 0.55;
+    player.scaleX = 1.35;
+    player.scaleY = 0.8;
+    player.vy = Math.max(180, player.vy * 0.65);
+    sound.playSnapClick();
   }
 
   public applyRotation(player: Player, deltaAngle: number): void {

@@ -355,4 +355,42 @@ describe('Vortex Dive - Meteor Fireball & Snap Step Seams', () => {
     physics.update(0.1, hyperPlayer, [], [], particles, () => {});
     expect(hyperPlayer.vy).toBeLessThanOrEqual(physics.maxTerminalVelocity);
   });
+
+  it('increases speed level by +0.1x for every 10 combo steps in a controlled human-capable range', () => {
+    const physics = new PhysicsEngine();
+    const particles = new ParticleManager();
+
+    const playerTier0 = createMockPlayer({ perfectDropStreak: 5, y: 100, vy: 200 });
+    physics.update(0.05, playerTier0, [], [], particles, () => {});
+    expect(playerTier0.speedMultiplier).toBe(1.0);
+
+    const playerTier1 = createMockPlayer({ perfectDropStreak: 15, y: 100, vy: 200 });
+    physics.update(0.05, playerTier1, [], [], particles, () => {});
+    expect(playerTier1.speedMultiplier).toBeCloseTo(1.1, 2);
+
+    const playerTier2 = createMockPlayer({ perfectDropStreak: 25, y: 100, vy: 200 });
+    physics.update(0.05, playerTier2, [], [], particles, () => {});
+    expect(playerTier2.speedMultiplier).toBeCloseTo(1.2, 2);
+
+    // Max tier cap: remains humanly reaction-capable
+    const playerTierMax = createMockPlayer({ perfectDropStreak: 150, y: 100, vy: 200 });
+    physics.update(0.05, playerTierMax, [], [], particles, () => {});
+    expect(playerTierMax.speedMultiplier).toBeLessThanOrEqual(1.9);
+  });
+
+  it('triggers 4-way actions: Slam Dive boosts speed and Air Glide applies air-brake safely', () => {
+    const physics = new PhysicsEngine();
+    const player = createMockPlayer();
+
+    physics.triggerSlamDive(player);
+    expect(player.isDiving).toBe(true);
+    expect(player.diveTimer).toBeGreaterThan(0);
+    expect(player.vy).toBeGreaterThanOrEqual(700);
+
+    const playerGlide = createMockPlayer({ vy: 600 });
+    physics.triggerAirGlide(playerGlide);
+    expect(playerGlide.isGliding).toBe(true);
+    expect(playerGlide.glideTimer).toBeGreaterThan(0);
+    expect(playerGlide.vy).toBeLessThan(600);
+  });
 });

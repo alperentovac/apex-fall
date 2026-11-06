@@ -20,16 +20,14 @@ class Game {
   // Fluid Continuous Steering state
   private targetRotation = 0;
   private pointerStartX = 0;
+  private pointerStartY = 0;
   private pointerStartTime = 0;
   private isPointerDown = false;
   private keySteerDir = 0; // -1: Left, +1: Right, 0: Idle
   private cometParticleTimer = 0;
+  private lastMilestoneTier = 0;
 
-  // Device Tilt (Gyroscope) controls
-  private isTiltEnabled = false;
-  private tiltCooldown = 0;
-
-  // DOM Elements matching 1.png
+  // DOM Elements matching 1.png & 4-Way Cyber Controller
   private hudSpeed: HTMLElement;
   private tick1: HTMLElement;
   private tick2: HTMLElement;
@@ -39,10 +37,18 @@ class Game {
   private hudCombo: HTMLElement;
   private hudTimer: HTMLElement;
   private btnRestartTop: HTMLElement;
-  private btnTilt: HTMLElement;
   private steeringMarker: HTMLElement;
   private steeringWidget: HTMLElement;
   private screenMsg: HTMLElement;
+
+  // 4-Way D-Pad & Navigation Guidance Elements
+  private btnUp: HTMLElement;
+  private btnDown: HTMLElement;
+  private btnLeft: HTMLElement;
+  private btnRight: HTMLElement;
+  private dpadCenter: HTMLElement;
+  private dpadGuideText: HTMLElement;
+  private dpadGuideSub: HTMLElement;
 
   constructor() {
     this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -62,10 +68,17 @@ class Game {
     this.hudCombo = document.getElementById('hud-combo')!;
     this.hudTimer = document.getElementById('hud-timer')!;
     this.btnRestartTop = document.getElementById('btn-restart-top')!;
-    this.btnTilt = document.getElementById('btn-tilt')!;
     this.steeringMarker = document.getElementById('steering-marker')!;
     this.steeringWidget = document.getElementById('steering-widget')!;
     this.screenMsg = document.getElementById('screen-msg')!;
+
+    this.btnUp = document.getElementById('btn-up')!;
+    this.btnDown = document.getElementById('btn-down')!;
+    this.btnLeft = document.getElementById('btn-left')!;
+    this.btnRight = document.getElementById('btn-right')!;
+    this.dpadCenter = document.getElementById('dpad-center')!;
+    this.dpadGuideText = document.getElementById('dpad-guide-text')!;
+    this.dpadGuideSub = document.getElementById('dpad-guide-sub')!;
 
     const savedBest = parseInt(localStorage.getItem('apex_best_depth') || '0', 10);
 
@@ -94,6 +107,7 @@ class Game {
       roundTimeRemaining: 30.0,
       roundTimeTotal: 30.0,
       isFallingFast: false,
+      speedMultiplier: 1.0,
       trailHistory: [],
       trailAngles: []
     };
@@ -121,10 +135,13 @@ class Game {
     resize();
   }
 
-  // Fluid Continuous and Responsive Controls: Drag, Arrow/AD keys, and Tilt
+  // 4-Way PC Controls (WASD & Arrows), Touch Swipes, D-Pad Buttons & Fluid Drag
   private setupInputs(): void {
-    const getClientX = (e: MouseEvent | TouchEvent): number => {
-      return 'touches' in e && e.touches.length > 0 ? e.touches[0].clientX : (e as MouseEvent).clientX;
+    const getPos = (e: MouseEvent | TouchEvent): { x: number; y: number } => {
+      if ('touches' in e && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
     };
 
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
@@ -135,17 +152,19 @@ class Game {
       }
 
       this.isPointerDown = true;
-      this.pointerStartX = getClientX(e);
+      const pos = getPos(e);
+      this.pointerStartX = pos.x;
+      this.pointerStartY = pos.y;
       this.pointerStartTime = Date.now();
     };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       if (!this.isPointerDown || this.state !== 'PLAYING') return;
-      const clientX = getClientX(e);
-      const deltaX = clientX - this.pointerStartX;
-      this.pointerStartX = clientX;
+      const pos = getPos(e);
+      const deltaX = pos.x - this.pointerStartX;
+      this.pointerStartX = pos.x;
 
-      // Smooth continuous sliding around the circle: "ÇEVREDE KAYDIRARAK SOL / SAĞA SÜREKLİ HAREKET ET"
+      // Continuous horizontal sliding around the circle
       this.targetRotation += (deltaX / 140) * Math.PI;
     };
 
@@ -153,20 +172,38 @@ class Game {
       if (!this.isPointerDown) return;
       this.isPointerDown = false;
 
-      // Quick tap fallback for subtle nudge
-      const elapsed = Date.now() - this.pointerStartTime;
-      const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as MouseEvent).clientX;
-      const dist = Math.abs(clientX - this.pointerStartX);
+      // Swipe / Flick Detection across 4 directions
+      const clientX = 'changedTouches' in e && e.changedTouches.length > 0
+        ? e.changedTouches[0].clientX
+        : (e as MouseEvent).clientX;
+      const clientY = 'changedTouches' in e && e.changedTouches.length > 0
+        ? e.changedTouches[0].clientY
+        : (e as MouseEvent).clientY;
 
-      if (elapsed < 240 && dist < 15 && this.state === 'PLAYING') {
-        const rect = this.canvas.getBoundingClientRect();
-        const midX = rect.left + rect.width / 2;
-        if (clientX < midX) {
-          this.targetRotation -= (Math.PI * 2) / 3;
-        } else {
-          this.targetRotation += (Math.PI * 2) / 3;
+      const dx = clientX - this.pointerStartX;
+      const dy = clientY - this.pointerStartY;
+      const elapsed = Date.now() - this.pointerStartTime;
+
+      if (elapsed < 380 && this.state === 'PLAYING') {
+        if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal Swipe: Sol / Sağ
+            if (dx < 0) {
+              this.targetRotation -= (Math.PI * 2) / 3;
+              sound.playSnapClick();
+            } else {
+              this.targetRotation += (Math.PI * 2) / 3;
+              sound.playSnapClick();
+            }
+          } else {
+            // Vertical Swipe: Yukarı (Süzül) / Aşağı (Dalış)
+            if (dy < 0) {
+              this.executeAirGlide();
+            } else {
+              this.executeSlamDive();
+            }
+          }
         }
-        sound.playSnapClick();
       }
     };
 
@@ -178,9 +215,39 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
-    // Bottom Steering Widget direct interaction
     this.steeringWidget.addEventListener('mousedown', handlePointerDown);
     this.steeringWidget.addEventListener('touchstart', handlePointerDown, { passive: true });
+
+    // D-Pad Button Direct Controls (Touch & Click)
+    this.btnUp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (this.state === 'PLAYING') this.executeAirGlide();
+    });
+
+    this.btnDown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (this.state === 'PLAYING') this.executeSlamDive();
+    });
+
+    this.btnLeft.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (this.state === 'PLAYING') {
+        this.targetRotation -= (Math.PI * 2) / 3;
+        sound.playSnapClick();
+      }
+    });
+
+    this.btnRight.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (this.state === 'PLAYING') {
+        this.targetRotation += (Math.PI * 2) / 3;
+        sound.playSnapClick();
+      }
+    });
 
     // Top restart icon
     this.btnRestartTop.addEventListener('click', (e) => {
@@ -188,7 +255,7 @@ class Game {
       this.startGame();
     });
 
-    // Keyboard support: continuous smooth holding + tap
+    // PC Keyboard: 4-Way Controls via WASD & Directional Arrow Keys
     window.addEventListener('keydown', (e) => {
       sound.init();
 
@@ -196,17 +263,33 @@ class Game {
         this.startGame();
         return;
       }
-
       if (e.code === 'KeyR') {
         this.startGame();
         return;
       }
 
       if (this.state === 'PLAYING') {
+        // Sol: A veya Sol Ok
         if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
           this.keySteerDir = -1;
-        } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          this.btnLeft.classList.add('active');
+          this.targetRotation -= (Math.PI * 2) / 3 * 0.25;
+        }
+        // Sağ: D veya Sağ Ok
+        else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
           this.keySteerDir = 1;
+          this.btnRight.classList.add('active');
+          this.targetRotation += (Math.PI * 2) / 3 * 0.25;
+        }
+        // Yukarı: W veya Yukarı Ok (Süzül / Air-Brake)
+        else if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+          this.btnUp.classList.add('active');
+          this.executeAirGlide();
+        }
+        // Aşağı: S veya Aşağı Ok (Hızlı Dalış / Slam Dive)
+        else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+          this.btnDown.classList.add('active');
+          this.executeSlamDive();
         }
       }
     });
@@ -214,67 +297,43 @@ class Game {
     window.addEventListener('keyup', (e) => {
       if ((e.code === 'ArrowLeft' || e.code === 'KeyA') && this.keySteerDir === -1) {
         this.keySteerDir = 0;
+        this.btnLeft.classList.remove('active');
       } else if ((e.code === 'ArrowRight' || e.code === 'KeyD') && this.keySteerDir === 1) {
         this.keySteerDir = 0;
-      }
-    });
-
-    // Tilt (Gyroscope) toggle
-    this.btnTilt.addEventListener('click', () => {
-      this.toggleTilt();
-    });
-
-    window.addEventListener('deviceorientation', (e) => {
-      if (this.isTiltEnabled && e.gamma !== null && this.state === 'PLAYING') {
-        // Continuous tilt steering
-        const tiltSpeed = Math.min(2.5, Math.max(-2.5, e.gamma / 16));
-        this.targetRotation += tiltSpeed * 0.05;
+        this.btnRight.classList.remove('active');
+      } else if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+        this.btnUp.classList.remove('active');
+      } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        this.btnDown.classList.remove('active');
       }
     });
   }
 
-  private toggleTilt(): void {
-    if (!this.isTiltEnabled) {
-      const req = (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> }).requestPermission;
-      if (typeof req === 'function') {
-        req()
-          .then((response) => {
-            if (response === 'granted') {
-              this.isTiltEnabled = true;
-              this.updateTiltButton();
-            }
-          })
-          .catch(() => {});
-      } else {
-        this.isTiltEnabled = true;
-        this.updateTiltButton();
-      }
-    } else {
-      this.isTiltEnabled = false;
-      this.updateTiltButton();
-    }
+  // 4-Way Action Triggers: Süzülme (W/Up) & Dalış (S/Down)
+  private executeAirGlide(): void {
+    this.physics.triggerAirGlide(this.player);
+    this.particles.spawnShockwave(this.player.x, this.player.y, 50, '#00f0ff');
+    this.particles.addFloatingText(this.player.x, this.player.y - 30, 'SÜZÜLME 🛡️', '#00f0ff', 18);
   }
 
-  private updateTiltButton(): void {
-    if (this.isTiltEnabled) {
-      this.btnTilt.textContent = '📱 TİLT: AÇIK';
-      this.btnTilt.classList.add('active');
-    } else {
-      this.btnTilt.textContent = '📱 TİLT: KAPALI';
-      this.btnTilt.classList.remove('active');
-    }
+  private executeSlamDive(): void {
+    this.physics.triggerSlamDive(this.player);
+    this.particles.spawnShockwave(this.player.x, this.player.y, 80, '#ffaa00');
+    this.particles.addFloatingText(this.player.x, this.player.y - 30, 'HIZLI DALIŞ! ⚡', '#ffaa00', 22);
+    this.juice.addShake(8, 0.16);
   }
 
   private showStartScreen(): void {
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(6, 3, 18, 0.94); border: 2px solid #00f0ff; border-radius: 24px; padding: 24px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.45); backdrop-filter: blur(8px);">
-        <h1 style="font-family: 'Orbitron'; font-size: 28px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 4px;">APEX FALL</h1>
-        <p style="color: #f59e0b; font-weight: 800; letter-spacing: 2px; font-size: 13px;">VORTEX CYBER DIVE</p>
-        <div style="margin: 16px 0; font-size: 14px; color: #cbd5e1; line-height: 1.8;">
-          🔄 <b>Kontrol:</b> Çevrede kaydırarak sola / sağa sürekli süzül!<br>
-          ✨ <b>Engeller Küçük:</b> Altın blokların yanından kolayca ak!<br>
-          💎 <b>Elmaslar:</b> Ekstra puan ve hız çarpanı topla!<br>
-          🐱 <b>3 Seri Delik:</b> Meteor Crush ateş topu modu!
+      <div style="background: rgba(6, 3, 18, 0.94); border: 2px solid #00f0ff; border-radius: 24px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.45); backdrop-filter: blur(8px);">
+        <h1 style="font-family: 'Orbitron'; font-size: 26px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 4px;">APEX FALL</h1>
+        <p style="color: #f59e0b; font-weight: 800; letter-spacing: 2px; font-size: 13px;">4 YÖNLÜ VORTEX KONTROLÜ</p>
+        <div style="margin: 14px 0; font-size: 13.5px; color: #cbd5e1; line-height: 1.75; text-align: left; padding: 0 8px;">
+          🎯 <b>Okları Takip Et:</b> Alttaki yanan okları izlersen engellere takılmazsın!<br>
+          ◀▶ <b>A / D / Sol-Sağ:</b> Engellerin etrafından süzül<br>
+          ▲ <b>W / Yukarı / Yukarı Kaydır:</b> Süzül / Yavaşla (Kalkan) 🛡️<br>
+          ▼ <b>S / Aşağı / Aşağı Kaydır:</b> Hızlı Dalış (Engelleri Kır) ⚡<br>
+          📈 <b>Dinamik Hız:</b> Her 10 adımda +0.1x hız artar (kontrollü & bağımlılık yapıcı)!
         </div>
         <button class="btn-action" id="btn-start">DALIŞA BAŞLA</button>
       </div>
@@ -330,6 +389,7 @@ class Game {
 
     this.targetRotation = 0;
     this.keySteerDir = 0;
+    this.lastMilestoneTier = 0;
     this.player.y = 90;
     this.player.vy = 200;
     this.player.roundTimeRemaining = 30.0;
@@ -338,6 +398,11 @@ class Game {
     this.player.isMeteor = false;
     this.player.meteorTimer = 0;
     this.player.meteorSmashesRemaining = 0;
+    this.player.isDiving = false;
+    this.player.diveTimer = 0;
+    this.player.isGliding = false;
+    this.player.glideTimer = 0;
+    this.player.speedMultiplier = 1.0;
     this.player.cylinderRotation = 0;
     this.player.rotationVelocity = 0;
     this.player.currentDepth = 0;
@@ -352,10 +417,6 @@ class Game {
   }
 
   private update(dt: number): void {
-    if (this.tiltCooldown > 0) {
-      this.tiltCooldown -= dt;
-    }
-
     // Continuous keyboard steering
     if (this.keySteerDir !== 0 && this.state === 'PLAYING') {
       this.targetRotation += this.keySteerDir * dt * 4.6;
@@ -386,8 +447,18 @@ class Game {
           this.state = 'CRASHED';
           this.showCrashScreen();
         },
-        () => {
+        (ring) => {
           this.juice.addShake(4, 0.08);
+
+          // Every 10 combo steps: celebrate +0.1 speed level up!
+          const tier = Math.floor(this.player.perfectDropStreak / 10);
+          if (tier > this.lastMilestoneTier) {
+            this.lastMilestoneTier = tier;
+            const speedVal = (1.0 + tier * 0.1).toFixed(1);
+            this.particles.addFloatingText(this.player.x, ring.y - 45, `⚡ HIZ ARTTI! (x${speedVal}) ⚡`, '#ffe600', 26);
+            this.juice.addShake(8, 0.2);
+            sound.playMeteorIgnite();
+          }
         },
         () => {
           this.juice.addShake(16, 0.3);
@@ -405,17 +476,49 @@ class Game {
 
     // Update Bottom Steering Dial Marker based on current cylinder rotation
     const normRot = Math.sin(this.player.cylinderRotation);
-    const markerX = normRot * 44;
-    const markerY = Math.abs(normRot) * 14;
+    const markerX = normRot * 38;
+    const markerY = Math.abs(normRot) * 12;
     this.steeringMarker.style.transform = `translate(${markerX}px, ${markerY}px)`;
 
-    // Update Top HUD matching 1.png
-    this.hudSpeed.textContent = `x${(this.player.vy / 220).toFixed(1)}`;
-    const speedLevel = Math.min(4, Math.max(1, Math.ceil((this.player.vy - 160) / 160)));
-    this.tick1.className = `speed-tick ${speedLevel >= 1 ? 'active' : ''}`;
-    this.tick2.className = `speed-tick ${speedLevel >= 2 ? 'active' : ''}`;
-    this.tick3.className = `speed-tick ${speedLevel >= 3 ? 'active' : ''}`;
-    this.tick4.className = `speed-tick ${speedLevel >= 4 ? 'active' : ''}`;
+    // Update Navigation Guidance Arrows (Following arrows ensures 100% obstacle avoidance)
+    const upcomingRing = this.world.rings.find((r) => !r.isBroken && r.y > this.player.y);
+    if (upcomingRing) {
+      const guide = this.physics.getGuideDirection(this.player, upcomingRing);
+      if (guide.step === -1) {
+        // Safe gap is to the LEFT
+        this.btnLeft.classList.add('guided');
+        this.btnRight.classList.remove('guided');
+        this.dpadCenter.classList.remove('safe');
+        this.dpadGuideText.textContent = '◀ SOLA';
+        this.dpadGuideText.style.color = '#00f0ff';
+        this.dpadGuideSub.textContent = 'GÜVENLİ YOL';
+      } else if (guide.step === 1) {
+        // Safe gap is to the RIGHT
+        this.btnRight.classList.add('guided');
+        this.btnLeft.classList.remove('guided');
+        this.dpadCenter.classList.remove('safe');
+        this.dpadGuideText.textContent = 'SAĞA ▶';
+        this.dpadGuideText.style.color = '#f59e0b';
+        this.dpadGuideSub.textContent = 'GÜVENLİ YOL';
+      } else {
+        // ALIGNED WITH SAFE GAP!
+        this.btnLeft.classList.remove('guided');
+        this.btnRight.classList.remove('guided');
+        this.dpadCenter.classList.add('safe');
+        this.dpadGuideText.textContent = 'HİZALANDI ✓';
+        this.dpadGuideText.style.color = '#39ff14';
+        this.dpadGuideSub.textContent = 'TEMİZ DALIŞ';
+      }
+    }
+
+    // Update Top HUD with Speed Multiplier Progression (Starts x1.0, +0.1x per 10 steps)
+    const speedMul = this.player.speedMultiplier || 1.0;
+    this.hudSpeed.textContent = `x${speedMul.toFixed(1)}`;
+    const speedTier = Math.min(4, Math.max(1, Math.round((speedMul - 0.9) * 4)));
+    this.tick1.className = `speed-tick ${speedTier >= 1 ? 'active' : ''}`;
+    this.tick2.className = `speed-tick ${speedTier >= 2 ? 'active' : ''}`;
+    this.tick3.className = `speed-tick ${speedTier >= 3 ? 'active' : ''}`;
+    this.tick4.className = `speed-tick ${speedTier >= 4 ? 'active' : ''}`;
 
     this.hudScore.textContent = this.player.score.toLocaleString();
     const comboDisplay = Math.max(1, Math.round(this.player.comboMultiplier * 10));
@@ -462,7 +565,7 @@ class Game {
       width
     );
 
-    // 3. Draw Player Comet Tail & 3D Glass Marble Ball
+    // 3. Draw Player Comet Tail, 3D Glass Marble Ball & 4-Way Action Animations
     this.drawPlayerBall(width, height);
 
     // 4. Draw Particles (Shards, sparks, shockwaves)
@@ -471,7 +574,7 @@ class Game {
     this.ctx.restore();
   }
 
-  // Draw 3D Glass Blue Sphere Ball with Curving Comet Tail (exactly matching 1.png!)
+  // Draw 3D Glass Blue Sphere Ball with Curving Comet Tail & 4-Way Action VFX
   private drawPlayerBall(width: number, height: number): void {
     const ctx = this.ctx;
     const cx = width / 2;
@@ -485,9 +588,11 @@ class Game {
     this.player.x = px;
 
     const isMeteor = this.player.isMeteor;
+    const isDiving = this.player.isDiving;
+    const isGliding = this.player.isGliding;
 
     // A. Curving Continuous Comet Tail Ribbon along the circular track (matching 1.png)
-    const tailSpan = isMeteor ? 1.05 : 0.78; // arc length in radians behind the ball
+    const tailSpan = isMeteor ? 1.05 : (isDiving ? 0.95 : 0.78);
     const tailSegments = 20;
     const baseRadius = this.player.radius;
 
@@ -496,7 +601,7 @@ class Game {
     const tailTipY = cy + Math.sin(orbitAngle - tailSpan) * R_COLLISION;
     const tailGrad = ctx.createLinearGradient(px, py, tailTipX, tailTipY);
 
-    if (isMeteor) {
+    if (isMeteor || isDiving) {
       tailGrad.addColorStop(0, '#ffffff');
       tailGrad.addColorStop(0.25, '#ffe600');
       tailGrad.addColorStop(0.65, '#ff4400');
@@ -509,26 +614,24 @@ class Game {
     }
 
     ctx.fillStyle = tailGrad;
-    ctx.shadowColor = isMeteor ? '#ff5500' : '#00f0ff';
-    ctx.shadowBlur = 18;
+    ctx.shadowColor = (isMeteor || isDiving) ? '#ff5500' : '#00f0ff';
+    ctx.shadowBlur = (isMeteor || isDiving) ? 24 : 18;
 
     ctx.beginPath();
-    // Outer arc curving backwards from ball to tip
     for (let i = 0; i <= tailSegments; i++) {
       const frac = i / tailSegments;
       const angle = orbitAngle - frac * tailSpan;
-      const w = baseRadius * (1 - frac) * (isMeteor ? 1.2 : 0.95);
+      const w = baseRadius * (1 - frac) * ((isMeteor || isDiving) ? 1.3 : 0.95);
       const r = R_COLLISION + w;
       const x = cx + Math.cos(angle) * r;
       const y = cy + Math.sin(angle) * r;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    // Inner arc returning from tip back to ball
     for (let i = tailSegments; i >= 0; i--) {
       const frac = i / tailSegments;
       const angle = orbitAngle - frac * tailSpan;
-      const w = baseRadius * (1 - frac) * (isMeteor ? 1.2 : 0.95);
+      const w = baseRadius * (1 - frac) * ((isMeteor || isDiving) ? 1.3 : 0.95);
       const r = R_COLLISION - w;
       const x = cx + Math.cos(angle) * r;
       const y = cy + Math.sin(angle) * r;
@@ -540,21 +643,70 @@ class Game {
 
     // Sparkle stardust emitted off the comet tail
     this.cometParticleTimer += 0.03;
-    if (this.cometParticleTimer > 0.08 && this.state === 'PLAYING') {
+    if (this.cometParticleTimer > 0.07 && this.state === 'PLAYING') {
       this.cometParticleTimer = 0;
-      const sparkAngle = orbitAngle - Math.random() * (tailSpan * 0.8);
-      const sparkDist = R_COLLISION + (Math.random() - 0.5) * 12;
+      const sparkAngle = orbitAngle - Math.random() * (tailSpan * 0.85);
+      const sparkDist = R_COLLISION + (Math.random() - 0.5) * 14;
       const sx = cx + Math.cos(sparkAngle) * sparkDist;
       const sy = cy + Math.sin(sparkAngle) * sparkDist;
-      this.particles.spawnSparks(sx, sy, isMeteor ? '#ffaa00' : '#00f0ff', 1, 30);
+      this.particles.spawnSparks(sx, sy, (isMeteor || isDiving) ? '#ffaa00' : '#00f0ff', 1, 35);
     }
 
-    // B. Outer Neon Glow Bloom
-    ctx.save();
-    ctx.shadowColor = isMeteor ? 'rgba(255, 68, 0, 0.9)' : 'rgba(0, 240, 255, 0.85)';
-    ctx.shadowBlur = isMeteor ? 26 : 20;
+    // B. Special 4-Way Action Animation: AIR-BRAKE GLIDE SHIELD (YUKARI / W / UP)
+    if (isGliding) {
+      ctx.save();
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 24;
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+      ctx.lineWidth = 2.5;
 
-    // C. 3D Glass Sphere Body with Specular Highlight (matching 1.png blue marble)
+      // Outer plasma shield bubble
+      ctx.beginPath();
+      ctx.arc(px, py, baseRadius * 1.85, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Hexagonal energy shield ripple
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let h = 0; h < 6; h++) {
+        const ha = (h * Math.PI) / 3 + this.lastTime * 0.003;
+        const hx = px + Math.cos(ha) * baseRadius * 1.5;
+        const hy = py + Math.sin(ha) * baseRadius * 1.5;
+        if (h === 0) ctx.moveTo(hx, hy);
+        else ctx.lineTo(hx, hy);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // C. Special 4-Way Action Animation: SLAM DIVE SONIC CONE (AŞAĞI / S / DOWN)
+    if (isDiving) {
+      ctx.save();
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 22;
+      ctx.strokeStyle = 'rgba(255, 170, 0, 0.8)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(px, py, baseRadius * 1.7, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Sonic boom shockwave ring
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(px, py, baseRadius * 2.3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // D. Outer Neon Glow Bloom
+    ctx.save();
+    ctx.shadowColor = (isMeteor || isDiving) ? 'rgba(255, 68, 0, 0.95)' : 'rgba(0, 240, 255, 0.85)';
+    ctx.shadowBlur = (isMeteor || isDiving) ? 28 : 20;
+
+    // E. 3D Glass Sphere Body with Specular Highlight (matching 1.png blue marble)
     const ballGrad = ctx.createRadialGradient(
       px - baseRadius * 0.35,
       py - baseRadius * 0.35,
@@ -564,7 +716,7 @@ class Game {
       baseRadius * 1.05
     );
 
-    if (isMeteor) {
+    if (isMeteor || isDiving) {
       ballGrad.addColorStop(0, '#ffffff'); // Specular core
       ballGrad.addColorStop(0.2, '#fef08a'); // Bright yellow
       ballGrad.addColorStop(0.55, '#f97316'); // Fire orange
@@ -583,7 +735,7 @@ class Game {
     ctx.arc(px, py, baseRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // D. Crisp White Specular Crescent Highlight on Upper-Left Edge
+    // F. Crisp White Specular Crescent Highlight on Upper-Left Edge
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.beginPath();
@@ -598,8 +750,7 @@ class Game {
     );
     ctx.fill();
 
-    ctx.restore(); // restore B
-    ctx.restore(); // restore A
+    ctx.restore();
   }
 
   private loop(timestamp: number): void {
