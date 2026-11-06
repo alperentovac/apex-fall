@@ -15,8 +15,8 @@ export interface GuideResult {
 }
 
 export class PhysicsEngine {
-  public readonly baseGravity = 620;
-  public readonly baseTerminalVelocity = 640;
+  public readonly baseGravity = 360;
+  public readonly baseTerminalVelocity = 380;
   public readonly maxTerminalVelocity = 1150;
   public readonly meteorDiveSpeed = 1450;
   public readonly worldWidth = 480;
@@ -70,6 +70,14 @@ export class PhysicsEngine {
       if (player.glideTimer <= 0) {
         player.isGliding = false;
         player.glideTimer = 0;
+      }
+    }
+
+    // Invulnerability Flash Timer
+    if (player.invulnerableTimer && player.invulnerableTimer > 0) {
+      player.invulnerableTimer -= dt;
+      if (player.invulnerableTimer <= 0) {
+        player.invulnerableTimer = 0;
       }
     }
 
@@ -142,7 +150,27 @@ export class PhysicsEngine {
 
             onSmashRing?.(ring);
           } else if (result.action === 'CRASH') {
-            // Option 3: Hitting a closed sector ends the game immediately!
+            if (player.invulnerableTimer && player.invulnerableTimer > 0) {
+              // Harmless glide through during invulnerability
+              ring.passed = true;
+              return;
+            }
+
+            if (player.shields && player.shields > 0) {
+              // Cosmic Energy Shield deflects the blow!
+              player.shields--;
+              player.invulnerableTimer = 1.0;
+              ring.passed = true;
+              sound.playShatter();
+              particles.spawnShockwave(player.x, ring.y, 90, '#00f0ff');
+              particles.addFloatingText(player.x, ring.y - 30, `KALKAN KORUDU! 🛡️`, '#00f0ff', 24);
+              player.scaleX = 1.35;
+              player.scaleY = 0.75;
+              player.vy = Math.min(player.vy, 220);
+              return;
+            }
+
+            // Option 3: Hitting a closed sector ends the game immediately when unshielded!
             player.y = ring.y - 4;
             player.vy = 0;
             player.isMeteor = false;
@@ -163,8 +191,8 @@ export class PhysicsEngine {
             // Hole color shift
             player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
 
-            // Rhythmic forward acceleration like Piano Tiles (fast, continuous momentum)
-            const targetPassSpeed = 400 + Math.min(player.consecutiveGaps, 12) * 50;
+            // Rhythmic forward acceleration like Piano Tiles (calm, continuous flow)
+            const targetPassSpeed = 260 + Math.min(player.consecutiveGaps, 10) * 18;
             player.vy = Math.min(effectiveTerminalVelocity, Math.max(player.vy, targetPassSpeed));
 
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
@@ -287,7 +315,7 @@ export class PhysicsEngine {
       targetSegment = ring.segments[ring.segments.length - 1];
     }
 
-    if (targetSegment.type === 'GAP') {
+    if (targetSegment.type === 'GAP' || targetSegment.hasObstacle === false) {
       return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
     }
 

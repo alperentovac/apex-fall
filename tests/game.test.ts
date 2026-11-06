@@ -393,4 +393,76 @@ describe('Vortex Dive - Meteor Fireball & Snap Step Seams', () => {
     expect(playerGlide.glideTimer).toBeGreaterThan(0);
     expect(playerGlide.vy).toBeLessThan(600);
   });
+
+  it('protects player with Cosmic Energy Shields on obstacle bump and decrements shield count safely', () => {
+    const physics = new PhysicsEngine();
+    const particles = new ParticleManager();
+    const sectorAngle = (Math.PI * 2) / 3;
+
+    const testRing: Ring = {
+      id: 10,
+      depth: 5,
+      y: 300,
+      radius: 140,
+      thickness: 26,
+      rotation: 0,
+      rotSpeed: 0,
+      color: '#00f0ff',
+      glow: 'rgba(0, 240, 255, 0.5)',
+      segments: [
+        { startAngle: 0, endAngle: sectorAngle, type: 'SAFE', hasObstacle: true },
+        { startAngle: sectorAngle, endAngle: sectorAngle * 2, type: 'GAP' },
+        { startAngle: sectorAngle * 2, endAngle: Math.PI * 2, type: 'SAFE', hasObstacle: false }
+      ],
+      passed: false,
+      isBroken: false,
+      colorIndex: 0
+    };
+
+    const player = createMockPlayer({
+      y: 295,
+      vy: 350,
+      shields: 3,
+      maxShields: 3,
+      cylinderRotation: 0
+    });
+
+    let crashed = false;
+    physics.update(
+      0.02,
+      player,
+      [testRing],
+      [],
+      particles,
+      () => {
+        crashed = true;
+      }
+    );
+
+    // Shield should absorb the hit!
+    expect(crashed).toBe(false);
+    expect(player.shields).toBe(2);
+    expect(player.invulnerableTimer).toBeGreaterThan(0);
+    expect(testRing.passed).toBe(true);
+  });
+
+  it('generates reduced obstacles: warmup depths have 0 obstacles and early depths have only 1 obstacle', () => {
+    const world = new WorldManager();
+    world.generateUpToDepth(20);
+
+    // Warmup depth 0 and 1: 0 obstacles
+    const ring0 = world.rings.find((r) => r.depth === 0)!;
+    const ring1 = world.rings.find((r) => r.depth === 1)!;
+    expect(ring0.segments.filter((s) => s.hasObstacle).length).toBe(0);
+    expect(ring1.segments.filter((s) => s.hasObstacle).length).toBe(0);
+
+    // Depths 2 through 20: exactly 1 obstacle per ring!
+    for (let d = 2; d <= 20; d++) {
+      const ring = world.rings.find((r) => r.depth === d);
+      if (ring) {
+        const obstacles = ring.segments.filter((s) => s.hasObstacle);
+        expect(obstacles.length).toBe(1);
+      }
+    }
+  });
 });

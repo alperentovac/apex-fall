@@ -20,7 +20,7 @@ export class WorldManager {
   public consecutiveSameGapSlotCount = 0;
 
   public readonly worldWidth = 480;
-  public readonly ringSpacing = 150;
+  public readonly ringSpacing = 165;
   public readonly ringRadius = 135;
   public readonly startY = 220;
 
@@ -107,12 +107,39 @@ export class WorldManager {
       sectorTypes[chosenSlot] = 'GAP';
     }
 
+    // Determine obstacle placement:
+    // Warmup depth 0 & 1: 0 obstacles (completely open safe lanes)
+    // Early/Mid depth 2..20: Exactly ONE single obstacle block per ring! (leaving 2/3 lanes completely open)
+    // High depths 21+: 75% 1 obstacle, 25% 2 obstacles (smooth human-capable scaling)
+    const safeIndices: number[] = [];
+    for (let i = 0; i < sectorCount; i++) {
+      if (sectorTypes[i] === 'SAFE') {
+        safeIndices.push(i);
+      }
+    }
+
+    const obstacleCount = depth <= 1 ? 0 : (depth <= 20 ? 1 : (Math.random() < 0.75 ? 1 : 2));
+    let obstacleSector = -1;
+    if (obstacleCount === 1 && safeIndices.length > 0) {
+      obstacleSector = safeIndices[depth % safeIndices.length];
+    }
+
     const segments: RingSegment[] = [];
     for (let i = 0; i < sectorCount; i++) {
+      let hasObstacle = false;
+      if (sectorTypes[i] === 'SAFE') {
+        if (obstacleCount >= 2) {
+          hasObstacle = true;
+        } else if (obstacleCount === 1) {
+          hasObstacle = (i === obstacleSector);
+        }
+      }
+
       segments.push({
         startAngle: i * sectorAngle,
         endAngle: (i + 1) * sectorAngle,
-        type: sectorTypes[i]
+        type: sectorTypes[i],
+        hasObstacle
       });
     }
 
@@ -124,7 +151,7 @@ export class WorldManager {
       y,
       radius: this.ringRadius,
       thickness: 24,
-      rotation: depth <= 1 ? 0 : (depth * 0.48) % (Math.PI * 2),
+      rotation: depth <= 2 ? 0 : (depth * 0.16) % (Math.PI * 2),
       rotSpeed: 0,
       color: theme.color,
       glow: theme.glow,
@@ -329,6 +356,11 @@ export class WorldManager {
           ctx.arc(b2X, b2Y, Math.max(1, 2 * scale), 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
+          continue;
+        }
+
+        // If SAFE sector has no obstacle block, it's an open safe stellar pathway:
+        if (seg.hasObstacle === false) {
           continue;
         }
 

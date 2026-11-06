@@ -33,6 +33,7 @@ class Game {
   private tick2: HTMLElement;
   private tick3: HTMLElement;
   private tick4: HTMLElement;
+  private hudShields: HTMLElement;
   private hudScore: HTMLElement;
   private hudCombo: HTMLElement;
   private hudTimer: HTMLElement;
@@ -64,6 +65,7 @@ class Game {
     this.tick2 = document.getElementById('tick-2')!;
     this.tick3 = document.getElementById('tick-3')!;
     this.tick4 = document.getElementById('tick-4')!;
+    this.hudShields = document.getElementById('hud-shields')!;
     this.hudScore = document.getElementById('hud-score')!;
     this.hudCombo = document.getElementById('hud-combo')!;
     this.hudTimer = document.getElementById('hud-timer')!;
@@ -85,7 +87,7 @@ class Game {
     this.player = {
       x: this.physics.worldWidth / 2,
       y: 90,
-      vy: 200,
+      vy: 140,
       radius: 14,
       consecutiveGaps: 0,
       isMeteor: false,
@@ -104,8 +106,11 @@ class Game {
       totalGems: 0,
       comboMultiplier: 1.0,
       perfectDropStreak: 0,
-      roundTimeRemaining: 30.0,
-      roundTimeTotal: 30.0,
+      roundTimeRemaining: 35.0,
+      roundTimeTotal: 35.0,
+      shields: 3,
+      maxShields: 3,
+      invulnerableTimer: 0,
       isFallingFast: false,
       speedMultiplier: 1.0,
       trailHistory: [],
@@ -325,17 +330,18 @@ class Game {
 
   private showStartScreen(): void {
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(6, 3, 18, 0.94); border: 2px solid #00f0ff; border-radius: 24px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.45); backdrop-filter: blur(8px);">
-        <h1 style="font-family: 'Orbitron'; font-size: 26px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 4px;">APEX FALL</h1>
-        <p style="color: #f59e0b; font-weight: 800; letter-spacing: 2px; font-size: 13px;">4 YÖNLÜ VORTEX KONTROLÜ</p>
-        <div style="margin: 14px 0; font-size: 13.5px; color: #cbd5e1; line-height: 1.75; text-align: left; padding: 0 8px;">
-          🎯 <b>Okları Takip Et:</b> Alttaki yanan okları izlersen engellere takılmazsın!<br>
-          ◀▶ <b>A / D / Sol-Sağ:</b> Engellerin etrafından süzül<br>
-          ▲ <b>W / Yukarı / Yukarı Kaydır:</b> Süzül / Yavaşla (Kalkan) 🛡️<br>
-          ▼ <b>S / Aşağı / Aşağı Kaydır:</b> Hızlı Dalış (Engelleri Kır) ⚡<br>
-          📈 <b>Dinamik Hız:</b> Her 10 adımda +0.1x hız artar (kontrollü & bağımlılık yapıcı)!
+      <div style="background: rgba(4, 2, 14, 0.94); border: 2px solid #00f0ff; border-radius: 24px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.45); backdrop-filter: blur(8px);">
+        <h1 style="font-family: 'Orbitron'; font-size: 25px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 4px;">APEX FALL</h1>
+        <p style="color: #f59e0b; font-weight: 800; letter-spacing: 2px; font-size: 13px;">KOZMİK DERİNLİK SEYAHATİ</p>
+        <div style="margin: 14px 0; font-size: 13px; color: #cbd5e1; line-height: 1.75; text-align: left; padding: 0 6px;">
+          🛡️ <b>3 Kozmik Kalkan:</b> Engellere çarpsan dahi kalkanın seni korur!<br>
+          ✨ <b>Geniş Açık Yollar:</b> Engeller seyreltildi; okları takip edip süzül!<br>
+          ◀▶ <b>A / D / Sol-Sağ:</b> Engellerin etrafından rahatça dön<br>
+          ▲ <b>W / Yukarı:</b> Süzül / Yavaşla (Enerji Kalkanı) 🛡️<br>
+          ▼ <b>S / Aşağı:</b> Hızlı Dalış (Engelleri Kır) ⚡<br>
+          📈 <b>Dengeli Akış:</b> Hız yavaş başlar, her 10 adımda sadece +0.1x artar.
         </div>
-        <button class="btn-action" id="btn-start">DALIŞA BAŞLA</button>
+        <button class="btn-action" id="btn-start">UZAY SEYAHATİNE BAŞLA</button>
       </div>
     `;
 
@@ -347,12 +353,12 @@ class Game {
   private showCrashScreen(): void {
     this.juice.addShake(22, 0.45);
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(26, 4, 14, 0.96); border: 2px solid #f59e0b; border-radius: 24px; padding: 24px; box-shadow: 0 0 35px rgba(245, 158, 11, 0.5); backdrop-filter: blur(8px);">
-        <h2 style="font-family: 'Orbitron'; font-size: 24px; color: #f59e0b; text-shadow: 0 0 14px #f59e0b; margin-bottom: 4px;">ALTIN ENGELE ÇARPTIN!</h2>
+      <div style="background: rgba(22, 4, 16, 0.96); border: 2px solid #f59e0b; border-radius: 24px; padding: 24px; box-shadow: 0 0 35px rgba(245, 158, 11, 0.5); backdrop-filter: blur(8px);">
+        <h2 style="font-family: 'Orbitron'; font-size: 22px; color: #f59e0b; text-shadow: 0 0 14px #f59e0b; margin-bottom: 4px;">KALKANLAR TÜKENDİ!</h2>
         <p style="color: #00f0ff; font-weight: 800; font-size: 24px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
         <p style="color: #ffffff; font-weight: 700; font-size: 16px; margin-bottom: 4px;">SKOR: ${this.player.score.toLocaleString()}</p>
         <p style="color: #94a3b8; font-size: 13px; margin-bottom: 14px;">GEÇİLEN DELİK: ${this.player.perfectDropStreak}</p>
-        <button class="btn-action" id="btn-restart" style="background: linear-gradient(135deg, #f59e0b, #00f0ff); font-weight: 900;">YENİDEN DALIŞ [R]</button>
+        <button class="btn-action" id="btn-restart" style="background: linear-gradient(135deg, #f59e0b, #00f0ff); font-weight: 900;">TEKRAR DALIŞ YAP [R]</button>
       </div>
     `;
 
@@ -366,11 +372,11 @@ class Game {
     sound.stopCatMusic();
     this.screenMsg.innerHTML = `
       <div style="background: rgba(18, 5, 28, 0.96); border: 2px solid #ffe600; border-radius: 24px; padding: 24px; box-shadow: 0 0 35px rgba(255, 230, 0, 0.5); backdrop-filter: blur(8px);">
-        <h2 style="font-family: 'Orbitron'; font-size: 24px; color: #ffe600; text-shadow: 0 0 14px #ffe600; margin-bottom: 4px;">⏱️ SÜRE DOLDU!</h2>
+        <h2 style="font-family: 'Orbitron'; font-size: 22px; color: #ffe600; text-shadow: 0 0 14px #ffe600; margin-bottom: 4px;">⏱️ ZAMAN DOLDU!</h2>
         <p style="color: #00f0ff; font-weight: 800; font-size: 24px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
         <p style="color: #ffffff; font-weight: 700; font-size: 16px; margin-bottom: 4px;">SKOR: ${this.player.score.toLocaleString()}</p>
         <p style="color: #94a3b8; font-size: 13px; margin-bottom: 14px;">GEÇİLEN DELİK: ${this.player.perfectDropStreak}</p>
-        <button class="btn-action" id="btn-restart" style="background: linear-gradient(135deg, #ffe600, #a855f7); color: #000; font-weight: 900;">TEKRAR DALIŞ YAP [R]</button>
+        <button class="btn-action" id="btn-restart" style="background: linear-gradient(135deg, #ffe600, #a855f7); color: #000; font-weight: 900;">YENİDEN DALIŞ YAP [R]</button>
       </div>
     `;
 
@@ -391,9 +397,12 @@ class Game {
     this.keySteerDir = 0;
     this.lastMilestoneTier = 0;
     this.player.y = 90;
-    this.player.vy = 200;
-    this.player.roundTimeRemaining = 30.0;
-    this.player.roundTimeTotal = 30.0;
+    this.player.vy = 140;
+    this.player.roundTimeRemaining = 35.0;
+    this.player.roundTimeTotal = 35.0;
+    this.player.shields = 3;
+    this.player.maxShields = 3;
+    this.player.invulnerableTimer = 0;
     this.player.consecutiveGaps = 0;
     this.player.isMeteor = false;
     this.player.meteorTimer = 0;
@@ -530,6 +539,10 @@ class Game {
     } else {
       this.hudTimer.classList.remove('urgent');
     }
+
+    // Shields display
+    const shieldCount = this.player.shields || 0;
+    this.hudShields.textContent = shieldCount > 0 ? '🛡️'.repeat(shieldCount) : '⚠️';
   }
 
   private draw(): void {
@@ -703,6 +716,19 @@ class Game {
 
     // D. Outer Neon Glow Bloom
     ctx.save();
+
+    // Invulnerability Shield Deflect Glow
+    if (this.player.invulnerableTimer && this.player.invulnerableTimer > 0) {
+      const flash = Math.sin(this.lastTime * 0.03);
+      ctx.strokeStyle = `rgba(0, 240, 255, ${0.55 + 0.4 * flash})`;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(px, py, baseRadius * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.shadowColor = (isMeteor || isDiving) ? 'rgba(255, 68, 0, 0.95)' : 'rgba(0, 240, 255, 0.85)';
     ctx.shadowBlur = (isMeteor || isDiving) ? 28 : 20;
 

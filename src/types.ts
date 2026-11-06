@@ -7,6 +7,7 @@ export interface RingSegment {
   endAngle: number;   // In radians [0, 2*PI)
   type: SegmentType;
   color?: string;
+  hasObstacle?: boolean;
 }
 
 export interface Ring {
@@ -120,6 +121,11 @@ export interface Player {
   isGliding?: boolean;
   glideTimer?: number;
   speedMultiplier?: number;
+
+  // Cosmic Energy Shields & Invulnerability
+  shields?: number;
+  maxShields?: number;
+  invulnerableTimer?: number;
 
   // Visual trail
   trailHistory: Array<{ x: number; y: number; alpha: number; scale: number; isMeteor: boolean }>;

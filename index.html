@@ -133,6 +133,18 @@
       gap: 6px;
       align-items: center;
     }
+    .hud-shields {
+      font-size: 13px;
+      letter-spacing: 2px;
+      background: rgba(14, 8, 32, 0.75);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      border-radius: 14px;
+      padding: 3px 8px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      white-space: nowrap;
+      line-height: 1;
+    }
     .hud-timer {
       font-family: 'Orbitron', monospace;
       font-size: 12px;
@@ -454,7 +466,8 @@
           </div>
         </div>
         <div class="hud-top-center">
-          <div class="hud-timer" id="hud-timer">⏱️ 30.0s</div>
+          <div class="hud-shields" id="hud-shields" title="Kozmik Kalkanlar">🛡️🛡️🛡️</div>
+          <div class="hud-timer" id="hud-timer">⏱️ 35.0s</div>
           <button id="btn-restart-top" class="btn-top-icon" title="Yeniden Başlat">🔄</button>
         </div>
         <div class="hud-stat-right">
