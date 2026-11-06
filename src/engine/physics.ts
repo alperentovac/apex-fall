@@ -3,10 +3,10 @@ import { ParticleManager } from './particles';
 import { sound } from './audio';
 
 export class PhysicsEngine {
-  public readonly gravity = 1550;
-  public readonly maxJumpSpeed = 880;
-  public readonly minJumpSpeed = 380;
-  public readonly terminalVelocity = 1450;
+  public readonly gravity = 2200;
+  public readonly maxJumpSpeed = 1100;
+  public readonly minJumpSpeed = 480;
+  public readonly terminalVelocity = 2100;
   public readonly worldWidth = 480;
 
   public update(
@@ -17,25 +17,25 @@ export class PhysicsEngine {
     particles: ParticleManager,
     onCrash: (floorsLost: number) => void
   ): void {
-    // Decay squash and stretch
-    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 12);
-    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 12);
+    // Fast decay squash and stretch for high-octane feel
+    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 22);
+    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 22);
 
     // Save trail history
-    if (!player.onGround && Math.abs(player.vy) > 100) {
+    if (!player.onGround && Math.abs(player.vy) > 80) {
       player.trailHistory.unshift({
         x: player.x,
         y: player.y,
-        alpha: 0.65,
+        alpha: 0.75,
         scale: player.scaleX
       });
-      if (player.trailHistory.length > 8) {
+      if (player.trailHistory.length > 10) {
         player.trailHistory.pop();
       }
     }
     // Fade trails
     for (const t of player.trailHistory) {
-      t.alpha -= dt * 2.5;
+      t.alpha -= dt * 3.5;
     }
 
     // If on ground and attached to moving platform
@@ -72,16 +72,18 @@ export class PhysicsEngine {
       player.x += player.vx * dt;
       player.y += player.vy * dt;
 
-      // Wall bounce
+      // Snappy wall bounce with dynamic wall-kick
       const halfW = player.width / 2;
       if (player.x - halfW < 0) {
         player.x = halfW;
-        player.vx = -player.vx * 0.65;
-        particles.spawnSparks(player.x, player.y, '#00f0ff', 6, 160);
+        player.vx = Math.abs(player.vx) * 0.75 + 120;
+        player.vy -= 100; // Wall jump boost
+        particles.spawnSparks(player.x, player.y, '#00f0ff', 8, 220);
       } else if (player.x + halfW > this.worldWidth) {
         player.x = this.worldWidth - halfW;
-        player.vx = -player.vx * 0.65;
-        particles.spawnSparks(player.x, player.y, '#00f0ff', 6, 160);
+        player.vx = -(Math.abs(player.vx) * 0.75 + 120);
+        player.vy -= 100; // Wall jump boost
+        particles.spawnSparks(player.x, player.y, '#00f0ff', 8, 220);
       }
 
       // Track falling speed and distance (Only Up terror)
@@ -116,12 +118,13 @@ export class PhysicsEngine {
               if (p.type === 'BOUNCY') {
                 // Trampoline bounce!
                 player.y = platTop - player.height / 2;
-                player.vy = -this.maxJumpSpeed * 1.15;
-                player.scaleX = 0.7;
-                player.scaleY = 1.45;
+                player.vy = -this.maxJumpSpeed * 1.2;
+                player.scaleX = 0.65;
+                player.scaleY = 1.55;
+                player.hasAirJump = true;
                 sound.playBounce();
-                particles.spawnShockwave(player.x, platTop, 60, '#ff00aa');
-                particles.spawnSparks(player.x, platTop, '#ff00aa', 14, 250);
+                particles.spawnShockwave(player.x, platTop, 65, '#ff00aa');
+                particles.spawnSparks(player.x, platTop, '#ff00aa', 16, 280);
                 particles.addFloatingText(player.x, platTop - 30, 'BOOST!', '#ff00aa', 22);
                 player.comboStreak++;
                 player.comboMultiplier = Math.min(64, Math.round((player.comboMultiplier + 0.5) * 10) / 10);
@@ -133,6 +136,7 @@ export class PhysicsEngine {
               player.vy = 0;
               player.vx = 0;
               player.onGround = true;
+              player.hasAirJump = true;
               player.groundPlatformId = p.id;
               player.scaleX = 1.4;
               player.scaleY = 0.65;
@@ -204,6 +208,30 @@ export class PhysicsEngine {
         particles.addFloatingText(g.x, g.y - 20, `+${awarded}`, '#ffea00', 22);
       }
     }
+  }
+
+  public applyAirControl(player: Player, dir: number, dt: number): void {
+    if (!player.onGround) {
+      player.vx += dir * 1650 * dt;
+      const maxVx = 480;
+      if (player.vx > maxVx) player.vx = maxVx;
+      if (player.vx < -maxVx) player.vx = -maxVx;
+    }
+  }
+
+  public triggerAirJump(player: Player, particles: ParticleManager): boolean {
+    if (!player.onGround && player.hasAirJump) {
+      player.hasAirJump = false;
+      player.vy = -this.maxJumpSpeed * 0.9;
+      player.scaleX = 0.7;
+      player.scaleY = 1.45;
+      sound.playJump(0.9);
+      particles.spawnShockwave(player.x, player.y + player.height / 2, 55, '#ff00aa');
+      particles.spawnSparks(player.x, player.y, '#ff00aa', 14, 240);
+      particles.addFloatingText(player.x, player.y - 25, 'AIR BOOST!', '#ff00aa', 20);
+      return true;
+    }
+    return false;
   }
 
   public launchJump(player: Player, angle: number, power: number, particles: ParticleManager): void {

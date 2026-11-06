@@ -87,6 +87,7 @@ export interface Player {
   charge: number; // 0 to 1
   aimAngle: number; // radians
   aimLength: number;
+  hasAirJump: boolean;
   
   // Squash and stretch juice
   scaleX: number;

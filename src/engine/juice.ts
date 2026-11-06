@@ -34,8 +34,8 @@ export class JuiceManager {
     // Camera targeting: keep player around 60% down the screen when climbing
     this.targetCameraY = playerY - screenHeight * 0.62;
 
-    // Faster tracking when falling down to feel the dizzying drop
-    const lerpSpeed = isFallingFast ? 14 : 7;
+    // Faster tracking when climbing and dizzying drop speed
+    const lerpSpeed = isFallingFast ? 26 : 16;
     this.cameraY += (this.targetCameraY - this.cameraY) * Math.min(1, dt * lerpSpeed);
 
     // Screen shake update

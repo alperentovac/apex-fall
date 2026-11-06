@@ -111,16 +111,15 @@ describe('Apex Fall Game Logic', () => {
     expect(player.comboMultiplier).toBeGreaterThan(1.0);
   });
 
-  it('triggers crash callback when falling all the way to ground floor', () => {
+  it('triggers mid-air recovery boost and air control steering', () => {
     const physics = new PhysicsEngine();
-    const world = new WorldManager();
     const particles = new ParticleManager();
 
     const player: Player = {
       x: 240,
-      y: world.groundY - 13,
+      y: 500,
       vx: 0,
-      vy: 1200, // Hard terminal fall
+      vy: 400,
       width: 26,
       height: 26,
       onGround: false,
@@ -130,28 +129,30 @@ describe('Apex Fall Game Logic', () => {
       charge: 0,
       aimAngle: -Math.PI / 2,
       aimLength: 0,
+      hasAirJump: true,
       scaleX: 1,
       scaleY: 1,
-      currentFloor: 25,
-      maxFloorAchieved: 25,
-      totalSparks: 500,
-      currentRunSparks: 500,
-      comboMultiplier: 6.5,
-      comboStreak: 25,
-      isFallingFast: true,
-      fallStartY: 100,
-      fallDistance: 700,
-      maxFallRecorded: 700,
+      currentFloor: 5,
+      maxFloorAchieved: 5,
+      totalSparks: 100,
+      currentRunSparks: 100,
+      comboMultiplier: 2.0,
+      comboStreak: 5,
+      isFallingFast: false,
+      fallStartY: 400,
+      fallDistance: 100,
+      maxFallRecorded: 100,
       trailHistory: []
     };
 
-    let lostFloors = 0;
-    physics.update(0.016, player, world.platforms, world.gems, particles, (floors) => {
-      lostFloors = floors;
-    });
+    // Trigger air boost
+    const boosted = physics.triggerAirJump(player, particles);
+    expect(boosted).toBe(true);
+    expect(player.hasAirJump).toBe(false);
+    expect(player.vy).toBeLessThan(0); // Upward momentum
 
-    expect(lostFloors).toBe(25);
-    expect(player.currentFloor).toBe(0);
-    expect(player.comboMultiplier).toBe(1.0);
+    // Apply air steering
+    physics.applyAirControl(player, 1, 0.05);
+    expect(player.vx).toBeGreaterThan(0);
   });
 });

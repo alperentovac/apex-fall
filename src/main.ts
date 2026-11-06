@@ -67,6 +67,7 @@ class Game {
       charge: 0,
       aimAngle: -Math.PI / 2,
       aimLength: 0,
+      hasAirJump: true,
       scaleX: 1,
       scaleY: 1,
       currentFloor: 0,
@@ -123,7 +124,14 @@ class Game {
         this.startGame();
         return;
       }
-      if (!this.player.onGround) return;
+
+      // Air Boost / Double Jump in mid-air
+      if (!this.player.onGround) {
+        if (this.physics.triggerAirJump(this.player, this.particles)) {
+          this.juice.addShake(8, 0.18);
+        }
+        return;
+      }
 
       this.isPointerDown = true;
       const pos = getPos(e);
@@ -140,7 +148,7 @@ class Game {
       this.currentPointerX = pos.x;
       this.currentPointerY = pos.y;
 
-      // Slingshot aim vector (pull opposite to launch direction)
+      // Snappy slingshot aim vector (quicker charge curve)
       const dx = this.pointerStartX - this.currentPointerX;
       const dy = this.pointerStartY - this.currentPointerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -152,7 +160,8 @@ class Game {
       if (angle < -Math.PI + 0.15 || angle >= Math.PI / 2) angle = -Math.PI + 0.15;
 
       this.player.aimAngle = angle;
-      this.player.charge = Math.min(1, dist / 140);
+      // High-octane responsiveness: fills charge with a shorter, snappier flick
+      this.player.charge = Math.min(1, Math.max(0.2, dist / 80));
     };
 
     const handlePointerUp = () => {
@@ -160,9 +169,11 @@ class Game {
       this.isPointerDown = false;
       this.player.isCharging = false;
 
-      if (this.player.charge > 0.12 && this.player.onGround) {
-        this.physics.launchJump(this.player, this.player.aimAngle, this.player.charge, this.particles);
-        this.juice.addShake(6, 0.15);
+      if (this.player.onGround) {
+        // Quick-tap instant jump support (Flappy Bird style rapid climb)
+        const power = this.player.charge > 0.2 ? this.player.charge : 0.72;
+        this.physics.launchJump(this.player, this.player.aimAngle, power, this.particles);
+        this.juice.addShake(7, 0.15);
       }
       this.player.charge = 0;
     };
@@ -185,9 +196,19 @@ class Game {
         return;
       }
 
-      if (e.code === 'Space' && this.player.onGround && !this.player.isCharging) {
-        this.player.isCharging = true;
-        this.player.charge = 0.2;
+      if (e.code === 'Space') {
+        if (!this.player.onGround) {
+          // Mid-air quick flap/boost
+          if (this.physics.triggerAirJump(this.player, this.particles)) {
+            this.juice.addShake(8, 0.18);
+          }
+          return;
+        }
+
+        if (this.player.onGround && !this.player.isCharging) {
+          this.player.isCharging = true;
+          this.player.charge = 0.35;
+        }
       }
     });
 
@@ -197,8 +218,9 @@ class Game {
       if (e.code === 'Space' && this.player.isCharging) {
         this.player.isCharging = false;
         if (this.player.onGround) {
-          this.physics.launchJump(this.player, this.keyboardAimAngle, this.player.charge, this.particles);
-          this.juice.addShake(6, 0.15);
+          const power = Math.max(0.65, this.player.charge);
+          this.physics.launchJump(this.player, this.keyboardAimAngle, power, this.particles);
+          this.juice.addShake(7, 0.15);
         }
         this.player.charge = 0;
       }
@@ -255,6 +277,7 @@ class Game {
     this.player.vx = 0;
     this.player.vy = 0;
     this.player.onGround = true;
+    this.player.hasAirJump = true;
     this.player.groundPlatformId = 1;
     this.player.currentFloor = 0;
     this.player.comboMultiplier = 1.0;
@@ -266,16 +289,22 @@ class Game {
   }
 
   private update(dt: number): void {
-    // Handle keyboard charge update
-    if (this.player.onGround && this.player.isCharging && !this.isPointerDown) {
-      this.player.charge = Math.min(1, this.player.charge + dt * 1.3);
+    // Air control steering with keyboard
+    let steerDir = 0;
+    if (this.keys['ArrowLeft'] || this.keys['KeyA']) steerDir -= 1;
+    if (this.keys['ArrowRight'] || this.keys['KeyD']) steerDir += 1;
 
-      // Aim angle via Left/Right keys
-      if (this.keys['ArrowLeft'] || this.keys['KeyA']) {
-        this.keyboardAimAngle = Math.max(-Math.PI * 0.85, this.keyboardAimAngle - dt * 2.5);
-      }
-      if (this.keys['ArrowRight'] || this.keys['KeyD']) {
-        this.keyboardAimAngle = Math.min(-Math.PI * 0.15, this.keyboardAimAngle + dt * 2.5);
+    if (steerDir !== 0 && !this.player.onGround) {
+      this.physics.applyAirControl(this.player, steerDir, dt);
+    }
+
+    // High-speed keyboard charge update
+    if (this.player.onGround && this.player.isCharging && !this.isPointerDown) {
+      this.player.charge = Math.min(1, this.player.charge + dt * 3.4);
+
+      if (steerDir !== 0) {
+        this.keyboardAimAngle += steerDir * dt * 4.2;
+        this.keyboardAimAngle = Math.max(-Math.PI * 0.85, Math.min(-Math.PI * 0.15, this.keyboardAimAngle));
       }
       this.player.aimAngle = this.keyboardAimAngle;
     }
