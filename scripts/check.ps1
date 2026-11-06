@@ -16,9 +16,10 @@ function Step($name, $cmdline) {
   else { Write-Output "ok   $name" }
 }
 
-# Add steps here, e.g.: Step 'build' 'npm run build'
+Step 'typecheck' 'npm run typecheck'
+Step 'test' 'npm test'
+Step 'build' 'npm run build'
 
-# Zero steps is not green: an unconfigured check must not pass for a real one.
 if (-not $steps) { Write-Output 'FAIL: no check steps yet; add real ones to scripts/check.ps1'; exit 1 }
 
 if ($failed.Count) { Write-Output "FAIL: $($failed -join ', ')"; exit 1 }

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>APEX FALL - The Infinite Risk Tower</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05050d;
+      font-family: 'Rajdhani', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-width: 540px;
+      max-height: 960px;
+      aspect-ratio: 9/16;
+      background: radial-gradient(circle at 50% 30%, #150d2a 0%, #060511 100%);
+      box-shadow: 0 0 50px rgba(180, 0, 255, 0.25), 0 0 20px rgba(0, 240, 255, 0.2);
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: auto;
+    }
+    #ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .stat-badge {
+      background: rgba(12, 10, 28, 0.75);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      border-radius: 8px;
+      padding: 6px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #7b8ba5;
+    }
+    .stat-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      font-weight: 800;
+      color: #00f0ff;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+    }
+    .multiplier-badge {
+      background: rgba(28, 10, 30, 0.8);
+      border: 1px solid rgba(255, 0, 128, 0.6);
+      box-shadow: 0 0 20px rgba(255, 0, 128, 0.4);
+      border-radius: 8px;
+      padding: 6px 14px;
+      text-align: right;
+    }
+    .multiplier-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 24px;
+      font-weight: 900;
+      color: #ff007f;
+      text-shadow: 0 0 12px rgba(255, 0, 128, 0.8);
+      transition: transform 0.1s ease;
+    }
+    #screen-msg {
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      width: 90%;
+      pointer-events: auto;
+      z-index: 10;
+    }
+    .btn-action {
+      background: linear-gradient(135deg, #ff007f 0%, #00f0ff 100%);
+      border: none;
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      padding: 14px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: 1px;
+      margin-top: 15px;
+    }
+    .btn-action:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 35px rgba(255, 0, 128, 0.8);
+    }
+    .btn-action:active {
+      transform: scale(0.96);
+    }
+    .instructions-hint {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #9cb3d6;
+      line-height: 1.4;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+    .pulse {
+      animation: pulseAnim 1.2s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
+    }
+    .sound-toggle {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      pointer-events: auto;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      color: #aaa;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-overlay">
+      <div class="hud-header">
+        <div class="stat-badge">
+          <div class="stat-label">Floor / Yükseklik</div>
+          <div class="stat-value" id="hud-floor">0 F</div>
+          <div class="stat-label" style="margin-top: 4px;">Top Skor: <span id="hud-best" style="color: #ffaa00;">0 F</span></div>
+        </div>
+        <div class="multiplier-badge" id="hud-multiplier-box">
+          <div class="stat-label">Combo Çarpanı</div>
+          <div class="multiplier-value" id="hud-multiplier">x1.0</div>
+          <div class="stat-label" style="margin-top: 4px;">Sparks: <span id="hud-sparks" style="color: #00ffaa;">0</span></div>
+        </div>
+      </div>
+      <div id="screen-msg"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
