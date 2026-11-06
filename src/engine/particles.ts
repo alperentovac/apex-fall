@@ -135,6 +135,30 @@ export class ParticleManager {
     this.spawnShockwave(x, y, 60, color);
   }
 
+  public spawnRocketFlame(x: number, y: number): void {
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 20;
+      const spd = 450 + Math.random() * 400;
+      const maxLife = 0.2 + Math.random() * 0.2;
+      const colors = ['#ff0055', '#ffaa00', '#ffff00', '#00f0ff'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      this.particles.push({
+        x: x + spread,
+        y: y + 10,
+        vx: (Math.random() - 0.5) * 80,
+        vy: spd, // Downward jet thrust
+        life: maxLife,
+        maxLife,
+        size: 4 + Math.random() * 5,
+        color,
+        alpha: 1,
+        shape: 'spark'
+      });
+    }
+  }
+
   public spawnCrash(x: number, y: number): void {
     // Massive explosion of dust and red/orange rage sparks
     const count = 45;

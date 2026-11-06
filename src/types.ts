@@ -93,6 +93,11 @@ export interface Player {
   scaleX: number;
   scaleY: number;
   
+  // Overdrive Super Power
+  overdriveEnergy: number; // 0 to 100
+  isOverdriveActive: boolean;
+  overdriveTimer: number;
+
   // Progression & Risk Stats
   currentFloor: number;
   maxFloorAchieved: number;

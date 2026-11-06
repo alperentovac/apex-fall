@@ -31,7 +31,9 @@ class Game {
   private hudBest: HTMLElement;
   private hudMultiplier: HTMLElement;
   private hudSparks: HTMLElement;
-  private hudMultiplierBox: HTMLElement;
+  private tubeFill: HTMLElement;
+  private tubeLabel: HTMLElement;
+  private btnRocket: HTMLElement;
   private screenMsg: HTMLElement;
 
   constructor() {
@@ -47,7 +49,9 @@ class Game {
     this.hudBest = document.getElementById('hud-best')!;
     this.hudMultiplier = document.getElementById('hud-multiplier')!;
     this.hudSparks = document.getElementById('hud-sparks')!;
-    this.hudMultiplierBox = document.getElementById('hud-multiplier-box')!;
+    this.tubeFill = document.getElementById('tube-fill')!;
+    this.tubeLabel = document.getElementById('tube-label')!;
+    this.btnRocket = document.getElementById('btn-rocket')!;
     this.screenMsg = document.getElementById('screen-msg')!;
 
     // Load best floor from localStorage
@@ -70,6 +74,9 @@ class Game {
       hasAirJump: true,
       scaleX: 1,
       scaleY: 1,
+      overdriveEnergy: 0,
+      isOverdriveActive: false,
+      overdriveTimer: 0,
       currentFloor: 0,
       maxFloorAchieved: savedBest,
       totalSparks: 0,
@@ -186,6 +193,13 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
+    // Rocket Button Click
+    this.btnRocket.addEventListener('click', () => {
+      if (this.physics.activateOverdrive(this.player, this.particles)) {
+        this.juice.addShake(18, 0.4);
+      }
+    });
+
     // Keyboard support
     window.addEventListener('keydown', (e) => {
       sound.init();
@@ -194,6 +208,12 @@ class Game {
       if ((e.code === 'KeyR' || e.code === 'Space') && (this.state === 'START' || this.state === 'CRASHED')) {
         this.startGame();
         return;
+      }
+
+      if (e.code === 'KeyE') {
+        if (this.physics.activateOverdrive(this.player, this.particles)) {
+          this.juice.addShake(18, 0.4);
+        }
       }
 
       if (e.code === 'Space') {
@@ -229,15 +249,15 @@ class Game {
 
   private showStartScreen(): void {
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(12, 8, 28, 0.88); border: 2px solid #00f0ff; border-radius: 16px; padding: 24px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
-        <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 15px #00f0ff; margin-bottom: 6px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 14px;">THE INFINITE RISK TOWER</p>
-        <p class="instructions-hint">
-          💎 <b>Basılı tut ve çek:</b> Zıplama gücünü ve yönünü ayarla.<br>
-          ⚡ <b>Her katta çarpan katlanır:</b> Ne kadar yukarı çıkarsan dopamin o kadar artar!<br>
-          ⚠️ <b>DİKKAT:</b> Hata yaparsan zemin kata kadar düşersin!
-        </p>
-        <button class="btn-action pulse" id="btn-start">TIRMANMAYA BAŞLA</button>
+      <div style="background: rgba(12, 8, 28, 0.88); border: 2px solid #00f0ff; border-radius: 16px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
+        <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 15px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RISK TOWER</p>
+        <div style="margin: 14px 0; font-size: 14px; color: #9cb3d6; line-height: 1.6;">
+          🎯 <b>Tıkla / Space:</b> Sıçra<br>
+          ⚡ <b>Kristal Topla:</b> Çarpanı ve Roketi Doldur<br>
+          🚀 <b>Overdrive [E]:</b> 20 Katı Delip Geç!
+        </div>
+        <button class="btn-action pulse" id="btn-start">BAŞLA</button>
       </div>
     `;
 
@@ -249,13 +269,10 @@ class Game {
   private showCrashScreen(floorsLost: number): void {
     this.juice.addShake(25, 0.55);
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(35, 5, 15, 0.92); border: 2px solid #ff0055; border-radius: 16px; padding: 24px; box-shadow: 0 0 40px rgba(255, 0, 85, 0.6);">
-        <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #ff0055; text-shadow: 0 0 15px #ff0055; margin-bottom: 4px;">DİBE ÇAKILDIN!</h2>
-        <p style="color: #ffaa00; font-weight: 800; font-size: 18px; margin: 8px 0;">-${floorsLost} KAT KAYBEDİLDİ!</p>
-        <p class="instructions-hint" style="color: #ddd;">
-          Tüm çarpanın sıfırlandı. Ama pes etmek yok!
-        </p>
-        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff0055, #ffaa00);">TEKRAR DENE (R)</button>
+      <div style="background: rgba(35, 5, 15, 0.92); border: 2px solid #ff0055; border-radius: 16px; padding: 22px; box-shadow: 0 0 40px rgba(255, 0, 85, 0.6);">
+        <h2 style="font-family: 'Orbitron'; font-size: 30px; color: #ff0055; text-shadow: 0 0 15px #ff0055; margin-bottom: 2px;">ÇAKILDIN!</h2>
+        <p style="color: #ffaa00; font-weight: 800; font-size: 20px; margin: 8px 0;">-${floorsLost}F KAYBEDİLDİ</p>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff0055, #ffaa00);">TEKRAR [R]</button>
       </div>
     `;
 
@@ -280,6 +297,9 @@ class Game {
     this.player.hasAirJump = true;
     this.player.groundPlatformId = 1;
     this.player.currentFloor = 0;
+    this.player.overdriveEnergy = 0;
+    this.player.isOverdriveActive = false;
+    this.player.overdriveTimer = 0;
     this.player.comboMultiplier = 1.0;
     this.player.comboStreak = 0;
     this.player.currentRunSparks = 0;
@@ -334,19 +354,23 @@ class Game {
     this.particles.update(dt);
     this.juice.update(dt, this.player.y, this.canvas.clientHeight, this.player.isFallingFast);
 
-    // Update HUD
-    this.hudFloor.textContent = `${this.player.currentFloor} F`;
-    this.hudBest.textContent = `${this.player.maxFloorAchieved} F`;
+    // Update Minimalist HUD
+    this.hudFloor.textContent = `${this.player.currentFloor}F`;
+    this.hudBest.textContent = `BEST ${this.player.maxFloorAchieved}F`;
     this.hudMultiplier.textContent = `x${this.player.comboMultiplier.toFixed(1)}`;
-    this.hudSparks.textContent = `${this.player.currentRunSparks}`;
+    this.hudSparks.textContent = `💎 ${this.player.currentRunSparks}`;
 
-    // Pop multiplier badge on high streaks
-    if (this.player.comboMultiplier > 2) {
-      this.hudMultiplierBox.style.borderColor = '#ff00aa';
-      this.hudMultiplier.style.color = '#ffea00';
+    // Overdrive Tube & Button update
+    const energyPct = Math.min(100, Math.max(0, this.player.overdriveEnergy));
+    this.tubeFill.style.height = `${energyPct}%`;
+    this.tubeLabel.textContent = `⚡${Math.round(energyPct)}%`;
+
+    if (energyPct >= 100 || this.player.isOverdriveActive) {
+      this.btnRocket.style.display = 'flex';
+      this.tubeLabel.style.color = '#ff0055';
     } else {
-      this.hudMultiplierBox.style.borderColor = 'rgba(255, 0, 128, 0.6)';
-      this.hudMultiplier.style.color = '#ff007f';
+      this.btnRocket.style.display = 'none';
+      this.tubeLabel.style.color = '#ffaa00';
     }
   }
 
@@ -364,7 +388,8 @@ class Game {
       height,
       this.player.currentFloor,
       this.player.isFallingFast,
-      this.player.comboMultiplier
+      this.player.comboMultiplier,
+      this.player.isOverdriveActive
     );
 
     // World transform (Camera + Screen Shake)
@@ -408,15 +433,15 @@ class Game {
     this.ctx.scale(this.player.scaleX, this.player.scaleY);
 
     // Outer glow aura
-    this.ctx.shadowBlur = 16;
-    this.ctx.shadowColor = this.player.comboMultiplier > 4 ? '#ff00aa' : '#00f0ff';
+    this.ctx.shadowBlur = this.player.isOverdriveActive ? 28 : (this.player.comboMultiplier > 4 ? 18 : 14);
+    this.ctx.shadowColor = this.player.isOverdriveActive ? '#ffaa00' : (this.player.comboMultiplier > 4 ? '#ff00aa' : '#00f0ff');
 
-    // Player body (Neon cyber core)
-    this.ctx.fillStyle = this.player.comboMultiplier > 4 ? '#ff007f' : '#00e5ff';
+    // Player body (Neon cyber core / Golden rocket core)
+    this.ctx.fillStyle = this.player.isOverdriveActive ? '#ffaa00' : (this.player.comboMultiplier > 4 ? '#ff007f' : '#00e5ff');
     const hw = this.player.width / 2;
     const hh = this.player.height / 2;
     this.ctx.beginPath();
-    this.ctx.roundRect(-hw, -hh, this.player.width, this.player.height, 6);
+    this.ctx.roundRect(-hw, -hh, this.player.width, this.player.height, this.player.isOverdriveActive ? 8 : 6);
     this.ctx.fill();
 
     // Inner bright neon core

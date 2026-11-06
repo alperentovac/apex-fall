@@ -245,6 +245,29 @@ class SoundManager {
     });
   }
 
+  public playRocketRoar(): void {
+    if (!this.ensureContext() || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // Jet / rocket synth sweep
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(450, now + 0.4);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 2.2);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 2.45);
+  }
+
   public playCrash(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;

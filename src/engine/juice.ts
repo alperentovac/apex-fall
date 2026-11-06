@@ -58,7 +58,8 @@ export class JuiceManager {
     height: number,
     currentFloor: number,
     isFallingFast: boolean,
-    comboMultiplier: number
+    comboMultiplier: number,
+    isOverdriveActive: boolean = false
   ): void {
     // Gradient sky that darkens/changes with height
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -120,6 +121,23 @@ export class JuiceManager {
       vig.addColorStop(1, `rgba(255, 0, 128, ${glowAlpha})`);
       ctx.fillStyle = vig;
       ctx.fillRect(0, 0, width, height);
+    }
+
+    // Hyper Rocket Overdrive supersonic warp effect
+    if (isOverdriveActive) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 170, 0, 0.65)';
+      ctx.lineWidth = 3.5;
+      for (let i = 0; i < 28; i++) {
+        const lx = Math.random() * width;
+        const ly = Math.random() * height;
+        const len = 90 + Math.random() * 160;
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx, ly + len);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     // High speed falling danger speed-lines (Dread indicator)

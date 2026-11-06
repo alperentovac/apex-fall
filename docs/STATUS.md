@@ -6,8 +6,7 @@ Shared notes for any agent. Keep it short. Now = unfinished work only; delete an
 - None
 
 ## Next
-- Optional upgrades shop or cosmetic spark trails
-- Global high score leaderboard integration
+- None
 
 ## Open questions
 - None

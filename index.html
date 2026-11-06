@@ -41,7 +41,6 @@
       display: block;
       width: 100%;
       height: 100%;
-      image-rendering: auto;
     }
     #ui-overlay {
       position: absolute;
@@ -53,57 +52,121 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px;
+      padding: 18px;
     }
-    .hud-header {
+    .hud-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
     }
-    .stat-badge {
-      background: rgba(12, 10, 28, 0.75);
-      border: 1px solid rgba(0, 240, 255, 0.4);
-      border-radius: 8px;
-      padding: 6px 12px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    .hud-stat-left {
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
     }
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: #7b8ba5;
-    }
-    .stat-value {
+    .hud-floor {
       font-family: 'Orbitron', monospace;
-      font-size: 20px;
-      font-weight: 800;
+      font-size: 28px;
+      font-weight: 900;
       color: #00f0ff;
-      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+      letter-spacing: -0.5px;
+      line-height: 1;
     }
-    .multiplier-badge {
-      background: rgba(28, 10, 30, 0.8);
-      border: 1px solid rgba(255, 0, 128, 0.6);
-      box-shadow: 0 0 20px rgba(255, 0, 128, 0.4);
-      border-radius: 8px;
-      padding: 6px 14px;
-      text-align: right;
-    }
-    .multiplier-value {
+    .hud-best {
       font-family: 'Orbitron', monospace;
-      font-size: 24px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffaa00;
+      letter-spacing: 1px;
+      margin-top: 3px;
+      opacity: 0.85;
+    }
+    .hud-stat-right {
+      text-align: right;
+      text-shadow: 0 0 14px rgba(255, 0, 128, 0.8);
+    }
+    .hud-multiplier {
+      font-family: 'Orbitron', monospace;
+      font-size: 28px;
       font-weight: 900;
       color: #ff007f;
-      text-shadow: 0 0 12px rgba(255, 0, 128, 0.8);
-      transition: transform 0.1s ease;
+      line-height: 1;
     }
+    .hud-sparks {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 800;
+      color: #00ffcc;
+      margin-top: 3px;
+      text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+    }
+
+    /* Minimalist Vertical Overdrive Energy Tube */
+    .overdrive-container {
+      position: absolute;
+      right: 18px;
+      bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .tube-wrapper {
+      position: relative;
+      width: 14px;
+      height: 140px;
+      background: rgba(10, 8, 25, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+    .tube-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: linear-gradient(0deg, #00f0ff 0%, #ff00aa 70%, #ffaa00 100%);
+      box-shadow: 0 0 14px rgba(255, 170, 0, 0.8);
+      transition: height 0.12s ease-out;
+      border-radius: 8px;
+    }
+    .tube-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 900;
+      color: #ffaa00;
+      text-shadow: 0 0 8px rgba(255, 170, 0, 0.8);
+    }
+
+    /* Pulsing Hyper Rocket Trigger Button */
+    #btn-rocket {
+      display: none;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff0055 0%, #ffaa00 100%);
+      border: 2px solid #ffffff;
+      color: #ffffff;
+      font-size: 26px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(255, 0, 85, 0.8), 0 0 45px rgba(255, 170, 0, 0.6);
+      animation: rocketPulse 0.8s infinite alternate ease-in-out;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes rocketPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 20px rgba(255, 0, 85, 0.6); }
+      100% { transform: scale(1.12); box-shadow: 0 0 40px rgba(255, 170, 0, 1); }
+    }
+
     #screen-msg {
       position: absolute;
-      top: 45%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      width: 90%;
+      width: 85%;
       pointer-events: auto;
       z-index: 10;
     }
@@ -118,43 +181,15 @@
       border-radius: 30px;
       cursor: pointer;
       box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
-      transition: transform 0.15s, box-shadow 0.15s;
+      transition: transform 0.15s;
       letter-spacing: 1px;
       margin-top: 15px;
     }
     .btn-action:hover {
       transform: scale(1.05);
-      box-shadow: 0 0 35px rgba(255, 0, 128, 0.8);
     }
     .btn-action:active {
       transform: scale(0.96);
-    }
-    .instructions-hint {
-      margin-top: 12px;
-      font-size: 13px;
-      color: #9cb3d6;
-      line-height: 1.4;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-    }
-    .pulse {
-      animation: pulseAnim 1.2s infinite ease-in-out;
-    }
-    @keyframes pulseAnim {
-      0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
-      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
-    }
-    .sound-toggle {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      pointer-events: auto;
-      background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 20px;
-      color: #aaa;
-      padding: 4px 10px;
-      font-size: 12px;
-      cursor: pointer;
     }
   </style>
 </head>
@@ -162,18 +197,26 @@
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
     <div id="ui-overlay">
-      <div class="hud-header">
-        <div class="stat-badge">
-          <div class="stat-label">Floor / Yükseklik</div>
-          <div class="stat-value" id="hud-floor">0 F</div>
-          <div class="stat-label" style="margin-top: 4px;">Top Skor: <span id="hud-best" style="color: #ffaa00;">0 F</span></div>
+      <div class="hud-top">
+        <div class="hud-stat-left">
+          <div class="hud-floor" id="hud-floor">0F</div>
+          <div class="hud-best" id="hud-best">BEST 0F</div>
         </div>
-        <div class="multiplier-badge" id="hud-multiplier-box">
-          <div class="stat-label">Combo Çarpanı</div>
-          <div class="multiplier-value" id="hud-multiplier">x1.0</div>
-          <div class="stat-label" style="margin-top: 4px;">Sparks: <span id="hud-sparks" style="color: #00ffaa;">0</span></div>
+        <div class="hud-stat-right">
+          <div class="hud-multiplier" id="hud-multiplier">x1.0</div>
+          <div class="hud-sparks" id="hud-sparks">💎 0</div>
         </div>
       </div>
+
+      <!-- Minimalist Overdrive Tube -->
+      <div class="overdrive-container">
+        <button id="btn-rocket" title="Rocket Overdrive [E]">🚀</button>
+        <div class="tube-wrapper">
+          <div class="tube-fill" id="tube-fill"></div>
+        </div>
+        <div class="tube-label" id="tube-label">⚡0%</div>
+      </div>
+
       <div id="screen-msg"></div>
     </div>
   </div>

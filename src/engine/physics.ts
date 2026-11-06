@@ -58,6 +58,42 @@ export class PhysicsEngine {
       }
     }
 
+    // Overdrive Super Power Active
+    if (player.isOverdriveActive) {
+      player.overdriveTimer -= dt;
+      player.vy = -1950; // Sustained supersonic rocket ascent
+      player.vx *= Math.pow(0.85, dt * 60);
+
+      player.x += player.vx * dt;
+      player.y += player.vy * dt;
+
+      particles.spawnRocketFlame(player.x, player.y + player.height / 2);
+
+      // Check passing floors and smashing through them
+      for (const p of platforms) {
+        if (p.floor > player.currentFloor && player.y <= p.y) {
+          player.currentFloor = p.floor;
+          if (player.currentFloor > player.maxFloorAchieved) {
+            player.maxFloorAchieved = player.currentFloor;
+          }
+          player.comboStreak++;
+          player.comboMultiplier = Math.min(64, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
+          player.currentRunSparks += Math.round(25 * player.comboMultiplier);
+          particles.spawnSparks(p.x + p.width / 2, p.y, '#ffaa00', 6, 200);
+        }
+      }
+
+      if (player.overdriveTimer <= 0) {
+        player.isOverdriveActive = false;
+        player.vy = -450; // Smooth exit float
+        player.hasAirJump = true;
+        particles.addFloatingText(player.x, player.y - 35, 'APEX BURST!', '#00f0ff', 24);
+      }
+
+      // Prevent regular falling physics while in overdrive
+      return;
+    }
+
     if (!player.onGround) {
       // Apply gravity
       player.vy += this.gravity * dt;
@@ -168,6 +204,8 @@ export class PhysicsEngine {
                   if (player.currentFloor > player.maxFloorAchieved) {
                     player.maxFloorAchieved = player.currentFloor;
                   }
+                  // Overdrive energy gain on climb
+                  player.overdriveEnergy = Math.min(100, player.overdriveEnergy + gained * 7);
                   // Streak reward
                   player.comboStreak += gained;
                   player.comboMultiplier = Math.min(64, 1 + player.comboStreak * 0.25);
@@ -202,6 +240,7 @@ export class PhysicsEngine {
         player.currentRunSparks += awarded;
         player.totalSparks += awarded;
         player.comboStreak++;
+        player.overdriveEnergy = Math.min(100, player.overdriveEnergy + 16);
         player.comboMultiplier = Math.min(64, Math.round((player.comboMultiplier + 0.2) * 10) / 10);
         sound.playGem(player.comboStreak);
         particles.spawnGemExplosion(g.x, g.y, g.color);
@@ -229,6 +268,23 @@ export class PhysicsEngine {
       particles.spawnShockwave(player.x, player.y + player.height / 2, 55, '#ff00aa');
       particles.spawnSparks(player.x, player.y, '#ff00aa', 14, 240);
       particles.addFloatingText(player.x, player.y - 25, 'AIR BOOST!', '#ff00aa', 20);
+      return true;
+    }
+    return false;
+  }
+
+  public activateOverdrive(player: Player, particles: ParticleManager): boolean {
+    if (player.overdriveEnergy >= 100 && !player.isOverdriveActive) {
+      player.isOverdriveActive = true;
+      player.overdriveTimer = 2.4;
+      player.overdriveEnergy = 0;
+      player.onGround = false;
+      player.groundPlatformId = null;
+      player.hasAirJump = true;
+      sound.playRocketRoar();
+      particles.spawnShockwave(player.x, player.y, 110, '#ffaa00');
+      particles.spawnSparks(player.x, player.y, '#ff0055', 25, 360);
+      particles.addFloatingText(player.x, player.y - 45, 'HYPER ROCKET!', '#ffaa00', 30);
       return true;
     }
     return false;
