@@ -15,8 +15,8 @@ export interface GuideResult {
 }
 
 export class PhysicsEngine {
-  public readonly baseGravity = 860;
-  public readonly baseTerminalVelocity = 680;
+  public readonly baseGravity = 620;
+  public readonly baseTerminalVelocity = 640;
   public readonly maxTerminalVelocity = 1150;
   public readonly meteorDiveSpeed = 1450;
   public readonly worldWidth = 480;
@@ -253,11 +253,22 @@ export class PhysicsEngine {
       return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
     }
 
-    // Closed obstacle sector (Option 3: Crash on impact unless in Meteor mode)
-    if (player.isMeteor) {
-      return { hit: true, ring, segment: targetSegment, action: 'SMASH' };
+    // Small golden obstacle block collision check:
+    // Golden obstacle block is centered in the sector, leaving generous safe margin around it
+    const segMid = (targetSegment.startAngle + targetSegment.endAngle) / 2;
+    let diff = Math.abs(relAngle - segMid);
+    if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+    const blockHalfWidth = 0.55; // ~31.5° (compact golden block as in 1.png)
+    if (diff <= blockHalfWidth) {
+      if (player.isMeteor) {
+        return { hit: true, ring, segment: targetSegment, action: 'SMASH' };
+      }
+      return { hit: true, ring, segment: targetSegment, action: 'CRASH' };
     }
-    return { hit: true, ring, segment: targetSegment, action: 'CRASH' };
+
+    // Dodged the small golden obstacle: safely flows through the wide opening!
+    return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
   }
 
   public applyRotation(player: Player, deltaAngle: number): void {

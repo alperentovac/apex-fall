@@ -31,10 +31,12 @@
       position: relative;
       width: 100%;
       height: 100%;
-      max-width: 500px;
-      max-height: 960px;
-      background: #05020c;
-      box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+      max-width: 440px;
+      max-height: 900px;
+      background: #03010b;
+      border-radius: 36px;
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 0 50px rgba(0, 240, 255, 0.22), inset 0 0 25px rgba(0, 0, 0, 0.8);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -44,6 +46,7 @@
         max-width: 100vw;
         max-height: 100vh;
         border-radius: 0;
+        border: none;
         box-shadow: none;
       }
     }
@@ -66,79 +69,91 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 14px 16px;
+      padding: 16px 20px;
     }
+
+    /* Top HUD: Exactly matching 1.png */
     .hud-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       pointer-events: auto;
+      z-index: 5;
     }
     .hud-stat-left {
       display: flex;
       flex-direction: column;
     }
-    .hud-title-tag {
+    .hud-label {
       font-family: 'Orbitron', monospace;
       font-size: 11px;
-      font-weight: 900;
-      color: #ff007f;
+      font-weight: 800;
+      color: #94a3b8;
       letter-spacing: 2px;
       line-height: 1;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
-    .hud-depth {
+    .hud-speed-val {
       font-family: 'Orbitron', monospace;
-      font-size: 30px;
+      font-size: 26px;
       font-weight: 900;
       color: #00f0ff;
       line-height: 1;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
     }
-    .hud-best {
-      font-family: 'Orbitron', monospace;
-      font-size: 11px;
-      font-weight: 700;
-      color: #ffaa00;
-      letter-spacing: 0.5px;
-      margin-top: 3px;
+    .hud-speed-meter {
+      display: flex;
+      gap: 3px;
+      margin-top: 5px;
     }
+    .speed-tick {
+      width: 14px;
+      height: 4.5px;
+      border-radius: 2px;
+      background: rgba(0, 240, 255, 0.2);
+      transition: all 0.15s ease;
+    }
+    .speed-tick.active {
+      background: #00f0ff;
+      box-shadow: 0 0 6px rgba(0, 240, 255, 0.9);
+    }
+
     .hud-top-center {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
     }
     .hud-timer {
       font-family: 'Orbitron', monospace;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 800;
       color: #ffe600;
-      background: rgba(20, 10, 40, 0.75);
-      border: 1px solid rgba(255, 230, 0, 0.4);
+      background: rgba(20, 10, 40, 0.7);
+      border: 1px solid rgba(255, 230, 0, 0.35);
       border-radius: 14px;
-      padding: 4px 10px;
+      padding: 3px 8px;
       backdrop-filter: blur(4px);
       letter-spacing: 0.5px;
-      text-shadow: 0 0 8px rgba(255, 230, 0, 0.5);
       white-space: nowrap;
     }
     .hud-timer.urgent {
       color: #ff0055;
       border-color: #ff0055;
-      text-shadow: 0 0 12px #ff0055;
+      text-shadow: 0 0 10px #ff0055;
       animation: timerPulse 0.45s infinite alternate ease-in-out;
     }
     @keyframes timerPulse {
       from { transform: scale(1); }
-      to { transform: scale(1.12); }
+      to { transform: scale(1.1); }
     }
     .btn-top-icon {
       background: rgba(20, 10, 40, 0.7);
       border: 1px solid rgba(0, 240, 255, 0.3);
       color: #00f0ff;
-      font-size: 14px;
+      font-size: 13px;
       border-radius: 50%;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -150,117 +165,116 @@
     }
 
     .hud-stat-right {
-      text-align: right;
-    }
-    .hud-multiplier {
-      font-family: 'Orbitron', monospace;
-      font-size: 26px;
-      font-weight: 900;
-      color: #ff007f;
-      line-height: 1;
-    }
-    .hud-gems {
-      font-family: 'Orbitron', monospace;
-      font-size: 13px;
-      font-weight: 800;
-      color: #ffe600;
-      margin-top: 3px;
-    }
-
-    /* Screen Tap Zone Hints */
-    .tap-hints {
-      position: absolute;
-      top: 60%;
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      padding: 0 18px;
-      pointer-events: none;
-      opacity: 0.75;
-      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
-    }
-    .tap-hints.hidden {
-      opacity: 0 !important;
-      transform: scale(0.92);
-      pointer-events: none;
-    }
-    .tap-hint-left, .tap-hint-right {
-      font-family: 'Orbitron', monospace;
-      font-size: 11px;
-      font-weight: 800;
-      color: rgba(255, 255, 255, 0.5);
-      background: rgba(10, 5, 25, 0.4);
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-    }
-
-    .hud-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      pointer-events: auto;
-    }
-    .btn-tilt {
-      background: rgba(14, 8, 30, 0.75);
-      border: 1.5px solid rgba(0, 240, 255, 0.4);
-      color: #00f0ff;
-      font-family: 'Orbitron', monospace;
-      font-size: 11px;
-      font-weight: 800;
-      padding: 8px 14px;
-      border-radius: 20px;
-      cursor: pointer;
-      backdrop-filter: blur(6px);
-      transition: all 0.15s ease;
-    }
-    .btn-tilt.active {
-      background: linear-gradient(135deg, #00f0ff, #0077ff);
-      color: #04020a;
-      border-color: #ffffff;
-      box-shadow: 0 0 14px rgba(0, 240, 255, 0.6);
-    }
-
-    .meteor-meter-container {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 4px;
+      text-align: right;
     }
-    .meteor-label {
+    .hud-score-val {
+      font-family: 'Orbitron', monospace;
+      font-size: 24px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+      margin-bottom: 6px;
+    }
+    .hud-combo-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 800;
+      color: #f59e0b;
+      letter-spacing: 1.5px;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .hud-combo-val {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: #f59e0b;
+      line-height: 1;
+      text-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
+    }
+
+    /* Bottom Controller Widget: Exactly matching 1.png */
+    .bottom-controller {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: auto;
+      margin-bottom: 8px;
+      z-index: 5;
+    }
+    .steering-widget {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .steering-dial {
+      position: relative;
+      width: 140px;
+      height: 70px;
+    }
+    .steering-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .steering-marker {
+      position: absolute;
+      top: 14px;
+      left: 70px;
+      width: 12px;
+      height: 12px;
+      margin-left: -6px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 12px #ffffff, 0 0 20px #00f0ff;
+      pointer-events: none;
+      transition: transform 0.08s ease-out;
+    }
+    .steering-instructions {
+      text-align: center;
+      margin-top: 4px;
+    }
+    .ctrl-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+      letter-spacing: 1.5px;
+      line-height: 1.2;
+    }
+    .ctrl-desc {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 1.2px;
+      line-height: 1.25;
+    }
+
+    .btn-tilt-toggle {
+      background: rgba(14, 8, 30, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #00f0ff;
       font-family: 'Orbitron', monospace;
       font-size: 10px;
-      font-weight: 900;
-      color: #ffaa00;
-      letter-spacing: 0.5px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      margin-top: 6px;
+      transition: all 0.15s ease;
     }
-    .meteor-dots {
-      display: flex;
-      gap: 5px;
-    }
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: rgba(30, 15, 45, 0.7);
-      border: 1.5px solid rgba(255, 170, 0, 0.35);
-      transition: all 0.12s ease;
-    }
-    .dot.active {
-      background: #ff5500;
-      border-color: #ffff00;
-      transform: scale(1.15);
-    }
-    .dot.fire {
-      background: #ff0055;
-      border-color: #ffffff;
-      box-shadow: 0 0 12px #ff0055;
-      animation: firePulse 0.45s infinite alternate;
-    }
-    @keyframes firePulse {
-      0% { transform: scale(1.1); }
-      100% { transform: scale(1.3); }
+    .btn-tilt-toggle.active {
+      background: #00f0ff;
+      color: #04020a;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
     }
 
     #screen-msg {
@@ -274,16 +288,16 @@
       z-index: 10;
     }
     .btn-action {
-      background: linear-gradient(135deg, #ff007f 0%, #00f0ff 100%);
+      background: linear-gradient(135deg, #00f0ff 0%, #a855f7 50%, #f59e0b 100%);
       border: none;
       color: #fff;
       font-family: 'Orbitron', sans-serif;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 900;
-      padding: 14px 30px;
+      padding: 13px 28px;
       border-radius: 30px;
       cursor: pointer;
-      box-shadow: 0 0 24px rgba(0, 240, 255, 0.5);
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.6);
       transition: transform 0.15s;
       letter-spacing: 1px;
       margin-top: 15px;
@@ -300,38 +314,69 @@
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
     <div id="ui-overlay">
+      <!-- Top HUD matching 1.png -->
       <div class="hud-top">
         <div class="hud-stat-left">
-          <div class="hud-title-tag">APEX FALL</div>
-          <div class="hud-depth" id="hud-depth">0M</div>
-          <div class="hud-best" id="hud-best">BEST 0M</div>
+          <div class="hud-label">HIZ</div>
+          <div class="hud-speed-val" id="hud-speed">x2.8</div>
+          <div class="hud-speed-meter" id="hud-speed-meter">
+            <span class="speed-tick active" id="tick-1"></span>
+            <span class="speed-tick active" id="tick-2"></span>
+            <span class="speed-tick active" id="tick-3"></span>
+            <span class="speed-tick" id="tick-4"></span>
+          </div>
         </div>
         <div class="hud-top-center">
-          <div class="hud-timer" id="hud-timer">⏱️ 25.0s</div>
+          <div class="hud-timer" id="hud-timer">⏱️ 30.0s</div>
           <button id="btn-restart-top" class="btn-top-icon" title="Yeniden Başlat">🔄</button>
         </div>
         <div class="hud-stat-right">
-          <div class="hud-multiplier" id="hud-multiplier">x1.0</div>
-          <div class="hud-gems" id="hud-gems">💎 0</div>
+          <div class="hud-label">SKOR</div>
+          <div class="hud-score-val" id="hud-score">0</div>
+          <div class="hud-combo-label">KOMBO</div>
+          <div class="hud-combo-val" id="hud-combo">x1</div>
         </div>
       </div>
 
-      <!-- Subtle Screen Tap Zone Hints -->
-      <div class="tap-hints" id="tap-hints">
-        <span class="tap-hint-left">◀ SOL DOKUN</span>
-        <span class="tap-hint-right">SAĞ DOKUN ▶</span>
-      </div>
-
-      <div class="hud-bottom">
-        <button id="btn-tilt" class="btn-tilt" title="Ters Jiroskop">📱 TİLT: KAPALI</button>
-        <div class="meteor-meter-container">
-          <div class="meteor-label" id="meteor-label">METEOR STREAK</div>
-          <div class="meteor-dots">
-            <div class="dot" id="dot-1"></div>
-            <div class="dot" id="dot-2"></div>
-            <div class="dot" id="dot-3"></div>
+      <!-- Bottom Controller widget matching 1.png -->
+      <div class="bottom-controller">
+        <div class="steering-widget" id="steering-widget">
+          <div class="steering-dial">
+            <svg class="steering-svg" viewBox="0 0 140 70">
+              <defs>
+                <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <filter id="glow-gold" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <!-- Left Cyan Arc -->
+              <path d="M 22 58 A 48 48 0 0 1 70 12" stroke="#00f0ff" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#glow-cyan)" />
+              <!-- Right Golden Arc -->
+              <path d="M 70 12 A 48 48 0 0 1 118 58" stroke="#f59e0b" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#glow-gold)" />
+              <!-- Left Cyan Arrow Indicator -->
+              <polygon points="12,52 24,44 24,60" fill="#00f0ff" filter="url(#glow-cyan)" />
+              <!-- Right Golden Arrow Indicator -->
+              <polygon points="128,52 116,44 116,60" fill="#f59e0b" filter="url(#glow-gold)" />
+            </svg>
+            <div class="steering-marker" id="steering-marker"></div>
+          </div>
+          <div class="steering-instructions">
+            <div class="ctrl-title">KONTROL:</div>
+            <div class="ctrl-desc">ÇEVREDE KAYDIRARAK</div>
+            <div class="ctrl-desc">SOL / SAĞA SÜREKLİ HAREKET ET</div>
           </div>
         </div>
+        <button id="btn-tilt" class="btn-tilt-toggle" title="Jiroskop Kontrolü">📱 TİLT: KAPALI</button>
       </div>
 
       <div id="screen-msg"></div>

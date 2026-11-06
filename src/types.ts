@@ -116,4 +116,5 @@ export interface Player {
 
   // Visual trail
   trailHistory: Array<{ x: number; y: number; alpha: number; scale: number; isMeteor: boolean }>;
+  trailAngles?: Array<{ angle: number; alpha: number; isMeteor: boolean }>;
 }
