@@ -1,67 +1,44 @@
-import { Platform, Gem, PlatformType } from '../types';
+import { Ring, RingSegment, SegmentType, Gem } from '../types';
 
 export class WorldManager {
-  public platforms: Platform[] = [];
+  public rings: Ring[] = [];
   public gems: Gem[] = [];
-  private highestGeneratedFloor = 0;
-  private nextPlatformId = 1;
+  public highestGeneratedDepth = 0;
+  private nextRingId = 1;
   private nextGemId = 1;
+
   public readonly worldWidth = 480;
-  public readonly groundY = 820;
+  public readonly ringSpacing = 160;
+  public readonly ringRadius = 140;
+  public readonly startY = 220;
 
   constructor() {
     this.reset();
   }
 
   public reset(): void {
-    this.platforms = [];
+    this.rings = [];
     this.gems = [];
-    this.highestGeneratedFloor = 0;
-    this.nextPlatformId = 1;
+    this.highestGeneratedDepth = -1;
+    this.nextRingId = 1;
     this.nextGemId = 1;
 
-    // Floor 0: Ground Platform
-    this.platforms.push({
-      id: this.nextPlatformId++,
-      x: 0,
-      y: this.groundY,
-      width: this.worldWidth,
-      height: 60,
-      type: 'SOLID',
-      floor: 0,
-      color: '#00f0ff',
-      glow: 'rgba(0, 240, 255, 0.5)'
-    });
-
-    // Generate first 30 floors
-    this.generateUpToFloor(30);
+    // Generate initial 25 rings
+    this.generateUpToDepth(25);
   }
 
   public update(dt: number, cameraY: number): void {
-    // Generate more platforms ahead of camera
-    const currentTopFloor = Math.floor(Math.abs(cameraY - this.groundY) / 100);
-    if (currentTopFloor + 25 > this.highestGeneratedFloor) {
-      this.generateUpToFloor(this.highestGeneratedFloor + 25);
+    // Generate rings ahead of camera
+    const currentCameraDepth = Math.max(0, Math.floor((cameraY - this.startY) / this.ringSpacing));
+    if (currentCameraDepth + 20 > this.highestGeneratedDepth) {
+      this.generateUpToDepth(this.highestGeneratedDepth + 20);
     }
 
-    // Update moving and crumbling platforms
-    for (const p of this.platforms) {
-      if (p.type === 'MOVING' && p.vx !== undefined && p.minX !== undefined && p.maxX !== undefined) {
-        p.x += p.vx * dt;
-        if (p.x <= p.minX) {
-          p.x = p.minX;
-          p.vx = Math.abs(p.vx);
-        } else if (p.x + p.width >= p.maxX) {
-          p.x = p.maxX - p.width;
-          p.vx = -Math.abs(p.vx);
-        }
-      }
-
-      if (p.isCrumbling && p.crumbleTimer !== undefined) {
-        p.crumbleTimer -= dt;
-        if (p.crumbleTimer <= 0) {
-          p.isBroken = true;
-        }
+    // Auto-rotate dynamic rings
+    for (const r of this.rings) {
+      if (r.rotSpeed !== 0) {
+        r.rotation = (r.rotation + r.rotSpeed * dt) % (Math.PI * 2);
+        if (r.rotation < 0) r.rotation += Math.PI * 2;
       }
     }
 
@@ -71,100 +48,150 @@ export class WorldManager {
     }
   }
 
-  public generateUpToFloor(targetFloor: number): void {
-    while (this.highestGeneratedFloor < targetFloor) {
-      this.highestGeneratedFloor++;
-      this.spawnFloorPlatform(this.highestGeneratedFloor);
+  public generateUpToDepth(targetDepth: number): void {
+    while (this.highestGeneratedDepth < targetDepth) {
+      this.highestGeneratedDepth++;
+      const y = this.startY + this.highestGeneratedDepth * this.ringSpacing;
+      const ring = this.createRing(this.highestGeneratedDepth, y);
+      this.rings.push(ring);
+
+      // Spawn gems in gap passages or bonus rings
+      this.spawnRingGems(ring);
     }
   }
 
-  private spawnFloorPlatform(floor: number): void {
-    // Height calculation: ~90-120px between floors
-    const floorSpacing = 95 + Math.min(floor * 0.4, 25);
-    const y = this.groundY - floor * floorSpacing;
+  public createRing(depth: number, y: number): Ring {
+    const sliceCount = 12;
+    const sliceAngle = (Math.PI * 2) / sliceCount;
+    const sliceTypes: SegmentType[] = new Array(sliceCount).fill('SAFE');
 
-    // Width scales with difficulty
-    const baseWidth = Math.max(75, 140 - Math.min(floor * 1.5, 60));
-    
-    // Choose platform type based on floor tier
-    let type: PlatformType = 'SOLID';
-    const rand = Math.random();
+    // Ring 0: Tutorial ring with 2 wide gaps and 0 hazards
+    if (depth === 0) {
+      sliceTypes[0] = 'GAP';
+      sliceTypes[1] = 'GAP';
+    } else {
+      // 1 or 2 Gap slices
+      const gapSliceIndex = Math.floor(Math.random() * sliceCount);
+      sliceTypes[gapSliceIndex] = 'GAP';
+      if (depth < 8 || Math.random() < 0.45) {
+        // Wider gap on earlier depths
+        sliceTypes[(gapSliceIndex + 1) % sliceCount] = 'GAP';
+      }
 
-    if (floor > 5 && rand < 0.28) {
-      type = 'MOVING';
-    } else if (floor > 8 && rand < 0.52) {
-      type = 'BOUNCY';
-    } else if (floor > 12 && rand < 0.76) {
-      type = 'CRUMBLING';
+      // Hazard slices scale with depth
+      let hazardCount = 0;
+      if (depth >= 3 && depth < 7) {
+        hazardCount = 1;
+      } else if (depth >= 7 && depth < 15) {
+        hazardCount = Math.random() < 0.6 ? 2 : 1;
+      } else if (depth >= 15) {
+        hazardCount = Math.random() < 0.5 ? 3 : 2;
+      }
+
+      // Place hazards away from gap
+      let placedHazards = 0;
+      let attempts = 0;
+      while (placedHazards < hazardCount && attempts < 30) {
+        attempts++;
+        const candidate = Math.floor(Math.random() * sliceCount);
+        // Ensure not in gap or immediately adjacent to gap to keep it fair
+        const isNearGap =
+          sliceTypes[candidate] === 'GAP' ||
+          sliceTypes[(candidate + 1) % sliceCount] === 'GAP' ||
+          sliceTypes[(candidate + sliceCount - 1) % sliceCount] === 'GAP';
+
+        if (!isNearGap && sliceTypes[candidate] === 'SAFE') {
+          sliceTypes[candidate] = 'HAZARD';
+          placedHazards++;
+        }
+      }
     }
 
-    // Platform position (zig-zag / varied)
-    const margin = 35;
-    const availableWidth = this.worldWidth - baseWidth - margin * 2;
-    // Prefer alternation between left/right/center to encourage dynamic jumps
-    const x = margin + Math.random() * availableWidth;
+    // Merge adjacent slices into continuous non-overlapping segments
+    const segments: RingSegment[] = [];
+    let curType = sliceTypes[0];
+    let curStart = 0;
 
+    for (let i = 1; i < sliceCount; i++) {
+      if (sliceTypes[i] !== curType) {
+        segments.push({
+          startAngle: curStart * sliceAngle,
+          endAngle: i * sliceAngle,
+          type: curType
+        });
+        curType = sliceTypes[i];
+        curStart = i;
+      }
+    }
+    // Final segment
+    segments.push({
+      startAngle: curStart * sliceAngle,
+      endAngle: Math.PI * 2,
+      type: curType
+    });
+
+    // Theme color progression based on depth
     let color = '#00f0ff';
     let glow = 'rgba(0, 240, 255, 0.45)';
 
-    if (type === 'BOUNCY') {
-      color = '#ff00aa';
-      glow = 'rgba(255, 0, 170, 0.6)';
-    } else if (type === 'CRUMBLING') {
-      color = '#ffbb00';
-      glow = 'rgba(255, 187, 0, 0.5)';
-    } else if (type === 'MOVING') {
+    if (depth >= 10 && depth < 25) {
+      color = '#ff00bb';
+      glow = 'rgba(255, 0, 187, 0.45)';
+    } else if (depth >= 25 && depth < 45) {
+      color = '#ffaa00';
+      glow = 'rgba(255, 170, 0, 0.45)';
+    } else if (depth >= 45) {
       color = '#00ff88';
-      glow = 'rgba(0, 255, 136, 0.5)';
+      glow = 'rgba(0, 255, 136, 0.45)';
     }
 
-    const platform: Platform = {
-      id: this.nextPlatformId++,
-      x,
+    // Dynamic rotation speed on deeper rings
+    let rotSpeed = 0;
+    if (depth >= 6 && Math.random() < 0.4) {
+      rotSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.4 + Math.min(depth * 0.03, 1.2));
+    }
+
+    return {
+      id: this.nextRingId++,
+      depth,
       y,
-      width: baseWidth,
-      height: 14,
-      type,
-      floor,
+      radius: this.ringRadius,
+      thickness: 26,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed,
       color,
       glow,
+      segments,
+      passed: false,
       isBroken: false
     };
+  }
 
-    if (type === 'MOVING') {
-      const speed = 70 + Math.min(floor * 2.5, 90);
-      platform.vx = (Math.random() > 0.5 ? 1 : -1) * speed;
-      platform.minX = margin;
-      platform.maxX = this.worldWidth - margin;
+  public getSegmentAtAngle(ring: Ring, angle: number): RingSegment | undefined {
+    let relAngle = (angle - ring.rotation) % (Math.PI * 2);
+    if (relAngle < 0) relAngle += Math.PI * 2;
+
+    for (const seg of ring.segments) {
+      if (relAngle >= seg.startAngle && relAngle < seg.endAngle) {
+        return seg;
+      }
     }
+    return ring.segments[ring.segments.length - 1];
+  }
 
-    this.platforms.push(platform);
-
-    // Chance to spawn a high-dopamine Gem above the platform
-    if (Math.random() < 0.75) {
-      this.gems.push({
-        id: this.nextGemId++,
-        x: x + baseWidth / 2,
-        y: y - 24,
-        radius: 8,
-        collected: false,
-        value: 10 + floor * 5,
-        color: type === 'BOUNCY' ? '#ff00aa' : '#00ffcc',
-        pulseOffset: Math.random() * Math.PI * 2
-      });
-    }
-
-    // Occasional risky bonus gem in mid-air gap
-    if (Math.random() < 0.35 && floor > 3) {
-      const midAirX = (x > this.worldWidth / 2) ? x - 80 : x + baseWidth + 40;
-      if (midAirX > 40 && midAirX < this.worldWidth - 40) {
+  private spawnRingGems(ring: Ring): void {
+    // Find GAP segments and place collectible gems in the gap
+    for (const seg of ring.segments) {
+      if (seg.type === 'GAP' && Math.random() < 0.6) {
+        const midAngle = (seg.startAngle + seg.endAngle) / 2;
         this.gems.push({
           id: this.nextGemId++,
-          x: midAirX,
-          y: y + floorSpacing * 0.45,
-          radius: 11,
+          ringId: ring.id,
+          angle: midAngle,
+          y: ring.y,
+          radius: 9,
           collected: false,
-          value: 50 + floor * 15,
+          value: 15 + ring.depth * 5,
           color: '#ffea00',
           pulseOffset: Math.random() * Math.PI * 2
         });
@@ -172,75 +199,97 @@ export class WorldManager {
     }
   }
 
-  public draw(ctx: CanvasRenderingContext2D, cameraY: number, screenHeight: number): void {
-    const visibleTop = cameraY - 150;
-    const visibleBottom = cameraY + screenHeight + 150;
+  public draw(
+    ctx: CanvasRenderingContext2D,
+    cameraY: number,
+    screenHeight: number,
+    worldRotation: number
+  ): void {
+    const visibleTop = cameraY - 120;
+    const visibleBottom = cameraY + screenHeight + 200;
+    const centerX = this.worldWidth / 2;
 
-    // Draw platforms
-    for (const p of this.platforms) {
-      if (p.isBroken) continue;
-      if (p.y < visibleTop || p.y > visibleBottom) continue;
+    // Draw rings from bottom to top or top to bottom with 2.5D perspective
+    for (const r of this.rings) {
+      if (r.isBroken) continue;
+      if (r.y < visibleTop || r.y > visibleBottom) continue;
 
       ctx.save();
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = p.glow;
+      const ry = r.y;
+      const rxRadius = r.radius;
+      const ryRadius = r.radius * 0.36; // 2.5D elliptical projection ratio
 
-      // Platform body
-      ctx.fillStyle = p.color;
-      if (p.type === 'CRUMBLING' && p.isCrumbling && p.crumbleTimer !== undefined) {
-        // Shake / flash crumbling platform
-        const shake = (Math.random() - 0.5) * 4;
-        ctx.translate(shake, 0);
-        ctx.globalAlpha = 0.5 + 0.5 * (p.crumbleTimer / 0.8);
+      const totalRotation = r.rotation + worldRotation;
+
+      // Draw each segment of the ring
+      for (const seg of r.segments) {
+        if (seg.type === 'GAP') continue; // Gaps are empty space
+
+        const isHazard = seg.type === 'HAZARD';
+        const start = seg.startAngle + totalRotation;
+        const end = seg.endAngle + totalRotation;
+
+        ctx.lineWidth = r.thickness;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = isHazard ? '#ff0055' : r.color;
+        ctx.shadowBlur = isHazard ? 18 : 12;
+        ctx.shadowColor = isHazard ? '#ff0055' : r.glow;
+
+        ctx.beginPath();
+        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
+        ctx.stroke();
+
+        // Inner bright neon accent highlight on safe pads
+        if (!isHazard) {
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#ffffff';
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.05, end - 0.05);
+          ctx.stroke();
+        }
       }
 
-      ctx.beginPath();
-      // Round top corners
-      const r = 5;
-      ctx.roundRect(p.x, p.y, p.width, p.height, [r, r, 2, 2]);
-      ctx.fill();
-
-      // Top glowing highlight strip
-      ctx.fillStyle = '#ffffff';
-      ctx.globalAlpha = 0.7;
-      ctx.fillRect(p.x + 3, p.y + 1, p.width - 6, 2.5);
-
-      // Floor tag indicator
-      if (p.floor > 0) {
-        ctx.globalAlpha = 0.45;
-        ctx.font = '700 9px "Orbitron", monospace';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(`F${p.floor}`, p.x + p.width / 2, p.y + p.height + 10);
-      }
+      // Draw ring depth indicator text
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.font = '700 10px "Orbitron", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${r.depth}M`, centerX + rxRadius + 24, ry + 4);
 
       ctx.restore();
     }
 
-    // Draw gems
+    // Draw collectible gems
     for (const g of this.gems) {
       if (g.collected) continue;
       if (g.y < visibleTop || g.y > visibleBottom) continue;
 
-      const floatY = g.y + Math.sin(g.pulseOffset) * 4;
-      ctx.save();
-      ctx.translate(g.x, floatY);
+      const ring = this.rings.find((r) => r.id === g.ringId);
+      const ringRot = ring ? ring.rotation : 0;
+      const totalAngle = g.angle + ringRot + worldRotation;
 
-      // Gem outer glow
+      const rx = this.ringRadius * 0.95;
+      const ry = this.ringRadius * 0.36 * 0.95;
+      const gemX = centerX + Math.cos(totalAngle) * rx;
+      const gemY = g.y + Math.sin(totalAngle) * ry + Math.sin(g.pulseOffset) * 4;
+
+      ctx.save();
+      ctx.translate(gemX, gemY);
       ctx.shadowBlur = 14;
       ctx.shadowColor = g.color;
+      ctx.fillStyle = g.color;
 
       // Diamond shape
-      ctx.fillStyle = g.color;
       ctx.beginPath();
       ctx.moveTo(0, -g.radius);
-      ctx.lineTo(g.radius * 0.9, 0);
-      ctx.lineTo(0, g.radius * 1.2);
-      ctx.lineTo(-g.radius * 0.9, 0);
+      ctx.lineTo(g.radius * 0.85, 0);
+      ctx.lineTo(0, g.radius * 1.15);
+      ctx.lineTo(-g.radius * 0.85, 0);
       ctx.closePath();
       ctx.fill();
 
-      // Inner sparkle
+      // Inner shine
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(0, -g.radius * 0.3, g.radius * 0.3, 0, Math.PI * 2);

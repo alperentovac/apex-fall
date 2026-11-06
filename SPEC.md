@@ -1,45 +1,47 @@
-# SPEC: Hyper Rocket Overdrive & Minimalist Arcade HUD
+# SPEC: Vortex Dive - Infinite Neon Freefall & Color Ring Smasher
 
 ## Goal
-Transform the UI into a zero-clutter, dynamic neon arcade interface and introduce the "Hyper Rocket Overdrive" skill mechanic: collecting gems and landing combos fills an Overdrive energy tube (%0 -> %100). When full, the player activates a 2.5s rocket blast that pierces upward through 15-25 floors with invulnerability, intense fire particles, screen warp, and massive bonus multiplier.
+Transform the game entirely into a high-speed downward freefall arcade experience ("Vortex Dive"): the player plunges vertically through an infinite tunnel of rotating neon color rings with pass-through gap holes and dangerous obstacle segments. Navigating multiple rings without collision triggers a "Meteor Fireball Dive" that smashes through obstacles with intense visual and audio juice. Supports touch drag, mouse flick, keyboard steering, and an optional toggleable device tilt (gyroscope) mode.
 
 ## Out of Scope
-- Permanent shop / upgrade tree persistence between runs (kept purely within the session run loop).
-- Multiplayer leaderboards or networking.
-- Soundtracks with licensed audio (procedural synth Web Audio will generate the rocket thruster sound).
+- Full 3D rendering engine (keeps ultra-smooth 120 FPS via 2.5D Canvas perspective).
+- Multiplayer live races.
+- In-app purchases.
 
 ## Acceptance Criteria
 - Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1` -> returns `OK`.
 - Running `npm run dev` and opening `http://localhost:5180`:
-  - HUD is stripped of all grey boxes, label texts ("Floor", "Combo", "Sparks"), displaying only crisp glowing numeric counters (`0F`, `x1.0`).
-  - A glowing vertical neon energy meter appears on screen, filling with each gem collected (+15%) and successful climb (+5%).
-  - At 100%, an interactive pulsating neon rocket icon illuminates, and pressing `E`, clicking the icon, or double-tapping triggers the Overdrive.
-  - During Overdrive: The character ignites a thruster flame particle cone, shoots vertically at extreme velocity (~2200 px/s), ignores collisions/hazards, shakes the screen, and smoothly decelerates at the peak.
+  - Player character continuously falls downward with gravity and aerodynamic trail.
+  - Spaced neon rings appear below, each with safe open gap arc(s) and red hazard arc(s).
+  - Touching/dragging or moving mouse rotates the rings smoothly around the center.
+  - Passing through a ring gap increments depth count, score, and combo multiplier.
+  - Clearing 3+ rings consecutively without touching safe landing pads ignites "Meteor Fireball Dive", smashing through the next hazard cleanly.
+  - Hitting a hazard segment triggers an instant shatter explosion and immediate single-tap restart.
+  - A settings toggle button allows enabling "Device Tilt Control" (using `DeviceOrientationEvent.gamma` on mobile).
 
 ## Testing & Seams
 - `tests/game.test.ts`:
-  - `Overdrive Charge Seam`: Verifies gem collection and combo landing increments energy meter and clamps at 100%.
-  - `Overdrive Activation & Physics Seam`: Verifies activating overdrive sets player into invincible rocket state, applies sustained upward thrust, drains meter, and reverts to normal state after 2.5s.
+  - `Ring Generation & Angular Seam`: Tests that rings generate with non-overlapping safe gaps and hazard angles, progressing in difficulty.
+  - `Angular Collision & Freefall Seam`: Tests angular collision detection against ring arcs and gap passages.
+  - `Meteor Fireball State Seam`: Verifies that consecutive gap passings trigger Meteor mode and award bonus multiplier.
 - `scripts/check.ps1`:
   - Runs typecheck, vitest unit tests, and vite production build.
 
 ## Plan: Vertical Slices
-- [ ] Slice 1: Energy & Overdrive State Engine -> `verify: npm test (overdrive state transitions, meter math, physics boost)`
-  - Add overdrive charge state, energy decay/gain logic to `Player` interface in `src/types.ts`.
-  - Implement rocket boost physics, invulnerability flag, and thruster particle spawner in `src/engine/physics.ts` and `src/engine/particles.ts`.
-  - Add procedural synth rocket roar sound in `src/engine/audio.ts`.
-  - Files touched: `src/types.ts`, `src/engine/physics.ts`, `src/engine/particles.ts`, `src/engine/audio.ts`, `tests/game.test.ts`.
+- [ ] Slice 1: Ring Geometry & Freefall Physics Engine -> `verify: npm test (angular collision, gap passing, meteor streak)`
+  - Replace platform generation with procedural `Ring` data structure (radius, rotation, gapStartAngle, gapEndAngle, hazardStartAngle, hazardEndAngle).
+  - Implement downward freefall physics, rotational ring controls (touch/drag/keys/tilt), and angular hit-testing.
+  - Files touched: `src/types.ts`, `src/engine/world.ts`, `src/engine/physics.ts`, `tests/game.test.ts`.
 
-- [ ] Slice 2: Minimalist Neon HUD & Energy Tube Render -> `verify: npm run build and browser visual check on :5180`
-  - Strip HTML text labels and background boxes from `index.html`.
-  - Implement canvas-drawn or sleek SVG/HTML vertical glowing neon charge tube.
-  - Add pulsing rocket activation button with hotkey `E` / touch trigger.
-  - Files touched: `index.html`, `src/main.ts`, `src/engine/juice.ts`.
+- [ ] Slice 2: Neon Ring Render, Meteor Juice & Procedural Sound -> `verify: npm run build and browser visual check on :5180`
+  - Render glowing neon arc rings, pass-through indicators, and player diving trail.
+  - Implement Meteor Fireball aura, ring shatter fragments, and deep whoosh/synth passage audio.
+  - Files touched: `src/engine/juice.ts`, `src/engine/particles.ts`, `src/engine/audio.ts`.
 
-- [ ] Slice 3: End-to-End Overdrive Juice & Acceptance Check -> `verify: powershell -NoProfile -File scripts/check.ps1`
-  - Connect full loop: Gem collect -> charge meter -> activation -> rocket thruster VFX -> floor blast -> smooth landing transition.
-  - Run Playwright test in headless browser to confirm zero console errors and take screenshots.
-  - Files touched: `src/main.ts`, `scripts/check.ps1`, `docs/STATUS.md`.
+- [ ] Slice 3: Controls, Tilt Gyroscope Settings & Cloudflare Deploy -> `verify: powershell -NoProfile -File scripts/check.ps1 and git push / wrangler pages deploy`
+  - Implement responsive touch drag, mouse movement, keyboard (A/D/Arrows), and Gyroscope tilt listener with a sleek HUD toggle.
+  - Validate with automated browser test and update Cloudflare Pages production deployment.
+  - Files touched: `index.html`, `src/main.ts`, `docs/STATUS.md`.
 
 ## Open Questions
 - None.

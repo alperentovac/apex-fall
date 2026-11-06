@@ -1,29 +1,33 @@
-export type GameState = 'START' | 'PLAYING' | 'FALLING' | 'CRASHED';
+export type GameState = 'START' | 'PLAYING' | 'CRASHED';
 
-export type PlatformType = 'SOLID' | 'BOUNCY' | 'CRUMBLING' | 'MOVING';
+export type SegmentType = 'GAP' | 'SAFE' | 'HAZARD';
 
-export interface Platform {
+export interface RingSegment {
+  startAngle: number; // In radians [0, 2*PI)
+  endAngle: number;   // In radians [0, 2*PI)
+  type: SegmentType;
+  color?: string;
+}
+
+export interface Ring {
   id: number;
-  x: number;
+  depth: number;
   y: number;
-  width: number;
-  height: number;
-  type: PlatformType;
-  floor: number;
-  crumbleTimer?: number;
-  isCrumbling?: boolean;
-  isBroken?: boolean;
-  vx?: number;
-  minX?: number;
-  maxX?: number;
+  radius: number;
+  thickness: number;
+  rotation: number;     // Current rotation angle in radians
+  rotSpeed: number;     // Auto-rotation speed for challenging rings
   color: string;
   glow: string;
-  visited?: boolean;
+  segments: RingSegment[];
+  passed: boolean;
+  isBroken: boolean;
 }
 
 export interface Gem {
   id: number;
-  x: number;
+  ringId: number;
+  angle: number;        // Angle on the ring (radians)
   y: number;
   radius: number;
   collected: boolean;
@@ -42,7 +46,7 @@ export interface Particle {
   size: number;
   color: string;
   alpha: number;
-  shape: 'circle' | 'square' | 'ring' | 'spark';
+  shape: 'circle' | 'square' | 'ring' | 'spark' | 'fragment';
   rotation?: number;
   vRot?: number;
 }
@@ -74,50 +78,33 @@ export interface FloatingText {
 export interface Player {
   x: number;
   y: number;
-  vx: number;
   vy: number;
-  width: number;
-  height: number;
-  onGround: boolean;
-  groundPlatformId: number | null;
-  rotation: number;
-  
-  // Aim and Jump Charge
-  isCharging: boolean;
-  charge: number; // 0 to 1
-  aimAngle: number; // radians
-  aimLength: number;
-  hasAirJump: boolean;
-  
-  // Squash and stretch juice
+  radius: number;
+
+  // Meteor Fireball Dive Mode
+  consecutiveGaps: number;
+  isMeteor: boolean;
+  meteorTimer: number;
+
+  // Ring/Cylinder rotation steering
+  cylinderRotation: number;
+  rotationVelocity: number;
+  tiltAngle: number;
+
+  // Squash & Stretch juice
   scaleX: number;
   scaleY: number;
-  
-  // Overdrive Super Power
-  overdriveEnergy: number; // 0 to 100
-  isOverdriveActive: boolean;
-  overdriveTimer: number;
 
-  // Flow State & Kinetic Momentum
-  flowCombo: number;
-  isFlowActive: boolean;
-  reboundBufferTimer: number; // input buffering window
-  wallSlideSide: 'left' | 'right' | null;
-  wallSlideTimer: number;
-
-  // Progression & Risk Stats
-  currentFloor: number;
-  maxFloorAchieved: number;
-  totalSparks: number;
-  currentRunSparks: number;
+  // Progression & Stats
+  currentDepth: number;
+  maxDepthAchieved: number;
+  score: number;
+  totalGems: number;
   comboMultiplier: number;
-  comboStreak: number;
-  
-  // Falling tracking (Only Up dread)
+
+  // Fast fall state for juice/camera
   isFallingFast: boolean;
-  fallStartY: number;
-  fallDistance: number;
-  maxFallRecorded: number;
-  
-  trailHistory: Array<{ x: number; y: number; alpha: number; scale: number }>;
+
+  // Visual trail
+  trailHistory: Array<{ x: number; y: number; alpha: number; scale: number; isMeteor: boolean }>;
 }

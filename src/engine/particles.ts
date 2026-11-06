@@ -22,9 +22,9 @@ export class ParticleManager {
       if (p.vRot) {
         p.rotation = (p.rotation || 0) + p.vRot * dt;
       }
-      // Gravity for some spark types
-      if (p.shape === 'spark') {
-        p.vy += 800 * dt;
+      // Gravity for fragments and sparks
+      if (p.shape === 'spark' || p.shape === 'fragment') {
+        p.vy += 600 * dt;
       }
     }
 
@@ -36,7 +36,7 @@ export class ParticleManager {
         this.shockwaves.splice(i, 1);
         continue;
       }
-      const progress = 1 - (sw.life / sw.maxLife);
+      const progress = 1 - sw.life / sw.maxLife;
       sw.radius = sw.maxRadius * Math.sin(progress * Math.PI * 0.5);
     }
 
@@ -73,24 +73,90 @@ export class ParticleManager {
     }
   }
 
-  public spawnJumpBurst(x: number, y: number, launchAngle: number): void {
-    // Burst opposite to launch direction
-    const oppAngle = launchAngle + Math.PI;
+  public spawnPassSparks(x: number, y: number, color = '#00f0ff'): void {
     const count = 14;
     for (let i = 0; i < count; i++) {
-      const spread = (Math.random() - 0.5) * 1.2;
-      const angle = oppAngle + spread;
-      const spd = 120 + Math.random() * 260;
+      const angle = (Math.random() - 0.5) * Math.PI * 0.8 - Math.PI / 2; // Upward spray
+      const spd = 120 + Math.random() * 280;
       const maxLife = 0.25 + Math.random() * 0.25;
       this.particles.push({
-        x: x + (Math.random() - 0.5) * 10,
-        y: y + (Math.random() - 0.5) * 5,
+        x: x + (Math.random() - 0.5) * 40,
+        y,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
         life: maxLife,
         maxLife,
         size: 2.5 + Math.random() * 3.5,
-        color: '#00f0ff',
+        color,
+        alpha: 1,
+        shape: 'spark'
+      });
+    }
+    this.spawnShockwave(x, y, 40, color);
+  }
+
+  public spawnBounce(x: number, y: number, color = '#00f0ff'): void {
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.random() - 0.5) * Math.PI; // Upwards
+      const spd = 100 + Math.random() * 220;
+      const maxLife = 0.2 + Math.random() * 0.25;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 30,
+        y,
+        vx: Math.cos(angle) * spd,
+        vy: -Math.abs(Math.sin(angle) * spd),
+        life: maxLife,
+        maxLife,
+        size: 3 + Math.random() * 3,
+        color,
+        alpha: 1,
+        shape: 'spark'
+      });
+    }
+  }
+
+  public spawnRingShatter(x: number, y: number, color = '#ff0055'): void {
+    const count = 35;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = 180 + Math.random() * 450;
+      const maxLife = 0.4 + Math.random() * 0.45;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 80,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: maxLife,
+        maxLife,
+        size: 5 + Math.random() * 7,
+        color: Math.random() > 0.4 ? color : '#ffaa00',
+        alpha: 1,
+        shape: 'fragment',
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 16
+      });
+    }
+  }
+
+  public spawnMeteorFlame(x: number, y: number): void {
+    const count = 6;
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 24;
+      const spd = 200 + Math.random() * 350;
+      const maxLife = 0.18 + Math.random() * 0.18;
+      const colors = ['#ff2200', '#ff6600', '#ffaa00', '#ffffff'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      this.particles.push({
+        x: x + spread,
+        y: y - 8,
+        vx: (Math.random() - 0.5) * 70,
+        vy: -spd, // Flaring upwards as player plunges down
+        life: maxLife,
+        maxLife,
+        size: 4 + Math.random() * 6,
+        color,
         alpha: 1,
         shape: 'spark'
       });
@@ -111,7 +177,6 @@ export class ParticleManager {
   }
 
   public spawnGemExplosion(x: number, y: number, color: string): void {
-    // Shiny gem shards and golden sparks
     const count = 22;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
@@ -135,35 +200,10 @@ export class ParticleManager {
     this.spawnShockwave(x, y, 60, color);
   }
 
-  public spawnRocketFlame(x: number, y: number): void {
-    const count = 5;
-    for (let i = 0; i < count; i++) {
-      const spread = (Math.random() - 0.5) * 20;
-      const spd = 450 + Math.random() * 400;
-      const maxLife = 0.2 + Math.random() * 0.2;
-      const colors = ['#ff0055', '#ffaa00', '#ffff00', '#00f0ff'];
-      const color = colors[Math.floor(Math.random() * colors.length)];
-
-      this.particles.push({
-        x: x + spread,
-        y: y + 10,
-        vx: (Math.random() - 0.5) * 80,
-        vy: spd, // Downward jet thrust
-        life: maxLife,
-        maxLife,
-        size: 4 + Math.random() * 5,
-        color,
-        alpha: 1,
-        shape: 'spark'
-      });
-    }
-  }
-
   public spawnCrash(x: number, y: number): void {
-    // Massive explosion of dust and red/orange rage sparks
     const count = 45;
     for (let i = 0; i < count; i++) {
-      const angle = Math.PI + (Math.random() - 0.5) * Math.PI; // Upwards spread
+      const angle = Math.random() * Math.PI * 2;
       const spd = 200 + Math.random() * 500;
       const maxLife = 0.5 + Math.random() * 0.5;
       this.particles.push({
@@ -182,7 +222,13 @@ export class ParticleManager {
     this.spawnShockwave(x, y, 120, '#ff0055');
   }
 
-  public addFloatingText(x: number, y: number, text: string, color = '#00f0ff', size = 20): void {
+  public addFloatingText(
+    x: number,
+    y: number,
+    text: string,
+    color = '#00f0ff',
+    size = 20
+  ): void {
     this.texts.push({
       id: this.nextTextId++,
       x,
@@ -198,7 +244,7 @@ export class ParticleManager {
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
-    // Draw shockwaves
+    // Shockwaves
     for (const sw of this.shockwaves) {
       const alpha = Math.max(0, sw.life / sw.maxLife);
       ctx.save();
@@ -213,7 +259,7 @@ export class ParticleManager {
       ctx.restore();
     }
 
-    // Draw particles
+    // Particles
     for (const p of this.particles) {
       ctx.save();
       ctx.globalAlpha = p.alpha;
@@ -225,7 +271,7 @@ export class ParticleManager {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-      } else if (p.shape === 'square') {
+      } else if (p.shape === 'square' || p.shape === 'fragment') {
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rotation || 0);
         ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
@@ -233,7 +279,7 @@ export class ParticleManager {
       ctx.restore();
     }
 
-    // Draw floating texts
+    // Floating texts
     for (const t of this.texts) {
       const alpha = Math.min(1, (t.life / t.maxLife) * 1.5);
       ctx.save();

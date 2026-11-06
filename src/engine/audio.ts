@@ -8,7 +8,7 @@ class SoundManager {
   private windFilter: BiquadFilterNode | null = null;
   private windNode: AudioBufferSourceNode | null = null;
 
-  // Pentatonic scale pitches for dopamine gem combos
+  // Pentatonic scale pitches for dopamine gem & gap streaks
   private scalePitches = [
     261.63, // C4
     293.66, // D4
@@ -26,7 +26,9 @@ class SoundManager {
   public init(): void {
     if (this.initialized) return;
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
       this.initialized = true;
       this.setupWindAmbience();
@@ -56,14 +58,14 @@ class SoundManager {
   private setupWindAmbience(): void {
     if (!this.ctx) return;
     try {
-      // Create pink/white noise buffer for whoosh wind
+      // Pink/white noise buffer for whoosh wind
       const bufferSize = this.ctx.sampleRate * 2;
       const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const data = buffer.getChannelData(0);
       let lastOut = 0.0;
       for (let i = 0; i < bufferSize; i++) {
         const white = Math.random() * 2 - 1;
-        data[i] = (lastOut + 0.02 * white) / 1.02; // pink noise approx
+        data[i] = (lastOut + 0.02 * white) / 1.02;
         lastOut = data[i];
       }
 
@@ -98,48 +100,28 @@ class SoundManager {
     this.windFilter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.05);
   }
 
-  public playJump(power: number): void {
+  public playPassGap(streak: number): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
-    
-    // Synth laser / power jump
+
+    const pitchIndex = (streak - 1) % this.scalePitches.length;
+    const freq = this.scalePitches[pitchIndex];
+
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    const baseFreq = 160 + power * 180;
-    osc.frequency.setValueAtTime(baseFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.8, now + 0.12);
+    osc.frequency.setValueAtTime(freq * 1.2, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 2.2, now + 0.12);
 
-    gain.gain.setValueAtTime(0.22, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.18);
-  }
-
-  public playLand(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(140, now);
-    osc.frequency.exponentialRampToValueAtTime(50, now + 0.08);
-
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.1);
+    osc.stop(now + 0.2);
   }
 
   public playBounce(): void {
@@ -149,21 +131,54 @@ class SoundManager {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.09);
 
     gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.24);
+    osc.stop(now + 0.15);
   }
 
-  public playCrumble(): void {
+  public playShatter(): void {
+    if (!this.ensureContext() || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // Sub-bass impact
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sawtooth';
+    subOsc.frequency.setValueAtTime(140, now);
+    subOsc.frequency.exponentialRampToValueAtTime(35, now + 0.25);
+    subGain.gain.setValueAtTime(0.4, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.32);
+
+    // High crunch noise
+    const crunchOsc = this.ctx.createOscillator();
+    const crunchGain = this.ctx.createGain();
+    crunchOsc.type = 'square';
+    crunchOsc.frequency.setValueAtTime(320, now);
+    crunchOsc.frequency.exponentialRampToValueAtTime(80, now + 0.18);
+    crunchGain.gain.setValueAtTime(0.3, now);
+    crunchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    crunchOsc.connect(crunchGain);
+    crunchGain.connect(this.ctx.destination);
+    crunchOsc.start(now);
+    crunchOsc.stop(now + 0.22);
+  }
+
+  public playMeteorIgnite(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
@@ -171,17 +186,17 @@ class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(110, now);
-    osc.frequency.linearRampToValueAtTime(60, now + 0.15);
+    osc.frequency.setValueAtTime(100, now);
+    osc.frequency.exponentialRampToValueAtTime(550, now + 0.35);
 
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.2);
+    osc.stop(now + 0.65);
   }
 
   public playGem(comboStreak: number): void {
@@ -192,7 +207,6 @@ class SoundManager {
     const octaveMultiplier = Math.floor((comboStreak - 1) / this.scalePitches.length) + 1;
     const freq = this.scalePitches[pitchIndex] * Math.min(octaveMultiplier, 2.5);
 
-    // Main chime
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -200,105 +214,33 @@ class SoundManager {
     osc.frequency.setValueAtTime(freq, now);
     osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.08);
 
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-    // Overtone harmonic for sparkle
-    const harm = this.ctx.createOscillator();
-    const harmGain = this.ctx.createGain();
-    harm.type = 'triangle';
-    harm.frequency.setValueAtTime(freq * 2, now);
-    harmGain.gain.setValueAtTime(0.15, now);
-    harmGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-
-    osc.connect(gain);
-    harm.connect(harmGain);
-    gain.connect(this.ctx.destination);
-    harmGain.connect(this.ctx.destination);
-
-    osc.start(now);
-    harm.start(now);
-    osc.stop(now + 0.36);
-    harm.stop(now + 0.22);
-  }
-
-  public playComboFanfare(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-    const chord = [523.25, 659.25, 783.99, 1046.50]; // C Major arpeggio
-
-    chord.forEach((freq, idx) => {
-      const startTime = now + idx * 0.05;
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0.2, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
-
-      osc.connect(gain);
-      gain.connect(this.ctx!.destination);
-
-      osc.start(startTime);
-      osc.stop(startTime + 0.42);
-    });
-  }
-
-  public playRocketRoar(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    // Jet / rocket synth sweep
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(80, now);
-    osc.frequency.exponentialRampToValueAtTime(450, now + 0.4);
-    osc.frequency.exponentialRampToValueAtTime(180, now + 2.2);
-
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+    gain.gain.setValueAtTime(0.28, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 2.45);
+    osc.stop(now + 0.34);
   }
 
   public playCrash(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
-    // Sub-bass thud
     const subOsc = this.ctx.createOscillator();
     const subGain = this.ctx.createGain();
     subOsc.type = 'sine';
-    subOsc.frequency.setValueAtTime(90, now);
-    subOsc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
+    subOsc.frequency.setValueAtTime(120, now);
+    subOsc.frequency.exponentialRampToValueAtTime(25, now + 0.4);
 
     subGain.gain.setValueAtTime(0.5, now);
-    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
     subOsc.connect(subGain);
     subGain.connect(this.ctx.destination);
     subOsc.start(now);
-    subOsc.stop(now + 0.45);
-
-    // Impact crunch
-    const crunchOsc = this.ctx.createOscillator();
-    const crunchGain = this.ctx.createGain();
-    crunchOsc.type = 'sawtooth';
-    crunchOsc.frequency.setValueAtTime(60, now);
-    crunchGain.gain.setValueAtTime(0.25, now);
-    crunchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-    crunchOsc.connect(crunchGain);
-    crunchGain.connect(this.ctx.destination);
-    crunchOsc.start(now);
-    crunchOsc.stop(now + 0.18);
+    subOsc.stop(now + 0.5);
   }
 }
 
