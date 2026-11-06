@@ -1,0 +1,8 @@
+node_modules/
+dist/
+__pycache__/
+.wrangler/
+.check.log
+.env
+.env.*
+.claude/settings.local.json
