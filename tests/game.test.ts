@@ -33,18 +33,21 @@ function createMockPlayer(overrides: Partial<Player> = {}): Player {
   };
 }
 
-describe('Vortex Dive - Ring Generation & Angular Seam', () => {
-  it('generates rings with non-overlapping segments covering the complete circle', () => {
+describe('Vortex Dive - Option 2 Quadrant Ring Generation & Angular Seam', () => {
+  it('generates 4 discrete 90-degree quadrant segments covering complete circle', () => {
     const world = new WorldManager();
     expect(world.rings.length).toBeGreaterThan(20);
 
     for (const ring of world.rings) {
-      expect(ring.segments.length).toBeGreaterThan(0);
+      expect(ring.segments.length).toBe(4);
       expect(ring.segments[0].startAngle).toBeCloseTo(0, 4);
       expect(ring.segments[ring.segments.length - 1].endAngle).toBeCloseTo(Math.PI * 2, 4);
 
       for (let i = 0; i < ring.segments.length - 1; i++) {
         expect(ring.segments[i].endAngle).toBeCloseTo(ring.segments[i + 1].startAngle, 4);
+        // Each quadrant is exactly PI / 2
+        const span = ring.segments[i].endAngle - ring.segments[i].startAngle;
+        expect(span).toBeCloseTo(Math.PI * 0.5, 4);
       }
     }
   });
@@ -54,15 +57,17 @@ describe('Vortex Dive - Ring Generation & Angular Seam', () => {
     const ring0 = world.rings.find((r) => r.depth === 0)!;
     expect(ring0).toBeDefined();
 
+    // Ring 0 has 3 GAPs and 0 hazards
     const ring0Hazards = ring0.segments.filter((s) => s.type === 'HAZARD');
     const ring0Gaps = ring0.segments.filter((s) => s.type === 'GAP');
     expect(ring0Hazards.length).toBe(0);
-    expect(ring0Gaps.length).toBeGreaterThan(0);
+    expect(ring0Gaps.length).toBe(3);
 
-    const ring12 = world.rings.find((r) => r.depth === 12);
-    expect(ring12).toBeDefined();
-    const ring12Hazards = ring12!.segments.filter((s) => s.type === 'HAZARD');
-    expect(ring12Hazards.length).toBeGreaterThan(0);
+    // Ring at depth 15 has hazards
+    const ring15 = world.rings.find((r) => r.depth === 15);
+    expect(ring15).toBeDefined();
+    const ring15Hazards = ring15!.segments.filter((s) => s.type === 'HAZARD');
+    expect(ring15Hazards.length).toBeGreaterThan(0);
   });
 
   it('correctly maps arbitrary angles to appropriate ring segments taking rotation into account', () => {
@@ -119,9 +124,10 @@ describe('Vortex Dive - Angular Collision & Freefall Seam', () => {
       color: '#00f0ff',
       glow: 'rgba(0, 240, 255, 0.5)',
       segments: [
-        { startAngle: 0, endAngle: Math.PI * 0.2, type: 'SAFE' },
-        { startAngle: Math.PI * 0.2, endAngle: Math.PI * 0.8, type: 'GAP' },
-        { startAngle: Math.PI * 0.8, endAngle: Math.PI * 2, type: 'SAFE' }
+        { startAngle: 0, endAngle: Math.PI * 0.5, type: 'SAFE' },
+        { startAngle: Math.PI * 0.5, endAngle: Math.PI, type: 'GAP' }, // Covers contactAngle (PI/2 = ~1.57)
+        { startAngle: Math.PI, endAngle: Math.PI * 1.5, type: 'HAZARD' },
+        { startAngle: Math.PI * 1.5, endAngle: Math.PI * 2, type: 'SAFE' }
       ],
       passed: false,
       isBroken: false,
@@ -157,7 +163,7 @@ describe('Vortex Dive - Angular Collision & Freefall Seam', () => {
     expect(testRing.passed).toBe(true);
     expect(player.consecutiveGaps).toBe(1);
     expect(player.currentDepth).toBe(1);
-    expect(player.colorThemeIndex).toBe(1); // Color theme shifted!
+    expect(player.colorThemeIndex).toBe(1);
     expect(player.vy).toBeGreaterThan(400);
   });
 
@@ -263,7 +269,7 @@ describe('Vortex Dive - Angular Collision & Freefall Seam', () => {
   });
 });
 
-describe('Vortex Dive - Meteor Fireball State Seam', () => {
+describe('Vortex Dive - Meteor Fireball & Snap Step Seams', () => {
   it('ignites Meteor Fireball mode upon 3 consecutive gap passages with finite duration', () => {
     const physics = new PhysicsEngine();
     const particles = new ParticleManager();
@@ -312,7 +318,7 @@ describe('Vortex Dive - Meteor Fireball State Seam', () => {
     expect(player.vy).toBeGreaterThanOrEqual(physics.meteorDiveSpeed);
   });
 
-  it('ends Meteor mode when timer expires or remaining smashes hit zero', () => {
+  it('ends Meteor mode when timer expires', () => {
     const physics = new PhysicsEngine();
     const particles = new ParticleManager();
 
@@ -323,13 +329,25 @@ describe('Vortex Dive - Meteor Fireball State Seam', () => {
       vy: 2000
     });
 
-    // Step physics past timer expiration
     physics.update(0.1, player, [], [], particles, () => {});
 
-    // Meteor mode properly expires (does not last forever!)
     expect(player.isMeteor).toBe(false);
     expect(player.meteorTimer).toBe(0);
     expect(player.vy).toBeLessThan(1000);
+  });
+
+  it('snaps rotation by exact 90 degrees on left/right discrete step', () => {
+    const physics = new PhysicsEngine();
+    const player = createMockPlayer({ cylinderRotation: 0 });
+
+    physics.snapRotate(player, 1); // 90° right
+    expect(player.cylinderRotation).toBeCloseTo(Math.PI * 0.5, 4);
+
+    physics.snapRotate(player, 1); // another 90° right -> 180°
+    expect(player.cylinderRotation).toBeCloseTo(Math.PI, 4);
+
+    physics.snapRotate(player, -1); // 90° left -> back to 90°
+    expect(player.cylinderRotation).toBeCloseTo(Math.PI * 0.5, 4);
   });
 
   it('progressively scales speed and gravity as depth increases (Piano Tiles flow)', () => {
@@ -342,7 +360,6 @@ describe('Vortex Dive - Meteor Fireball State Seam', () => {
     const deepPlayer = createMockPlayer({ currentDepth: 30, y: 100, vy: 0 });
     physics.update(0.1, deepPlayer, [], [], particles, () => {});
 
-    // Deeper player has accelerated fall speed smoothly
     expect(deepPlayer.vy).toBeGreaterThan(shallowPlayer.vy);
   });
 });

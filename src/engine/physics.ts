@@ -10,7 +10,6 @@ export interface CollisionResult {
 }
 
 export class PhysicsEngine {
-  // Accessible, gentle base gravity that ramps up smoothly with depth (Piano Tiles progression)
   public readonly baseGravity = 1250;
   public readonly bounceSpeed = 500;
   public readonly baseTerminalVelocity = 1250;
@@ -33,7 +32,7 @@ export class PhysicsEngine {
     player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 20);
     player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 20);
 
-    // Aerodynamic diving trails
+    // Diving trails
     player.trailHistory.unshift({
       x: player.x,
       y: player.y,
@@ -48,7 +47,7 @@ export class PhysicsEngine {
       t.alpha -= dt * (player.isMeteor ? 3.0 : 4.0);
     }
 
-    // Meteor mode countdown (finite duration)
+    // Meteor mode timer countdown
     if (player.isMeteor) {
       player.meteorTimer -= dt;
       if (player.meteorTimer <= 0) {
@@ -56,8 +55,8 @@ export class PhysicsEngine {
       }
     }
 
-    // Progressive speed scaling: starts gentle, accelerates smoothly with depth
-    const depthProgress = Math.min(player.currentDepth * 0.012, 0.6);
+    // Progressive speed scaling: starts accessible, accelerates with depth
+    const depthProgress = Math.min(player.currentDepth * 0.015, 0.65);
     const effectiveGravity = this.baseGravity * (1 + depthProgress);
     const effectiveTerminalVelocity = player.isMeteor
       ? this.meteorDiveSpeed
@@ -77,7 +76,7 @@ export class PhysicsEngine {
       for (const ring of rings) {
         if (ring.isBroken) continue;
 
-        // Check if player passes ring level
+        // Check crossing the ring plane
         if (prevY <= ring.y && newY >= ring.y) {
           const result = this.resolveRingCollision(player, ring);
 
@@ -141,8 +140,8 @@ export class PhysicsEngine {
             // Hole color shift
             player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
 
-            // Rhythmic speed boost for chained drops
-            player.vy = Math.max(player.vy, 460 + player.consecutiveGaps * 100);
+            // Rhythmic momentum boost for chaining gaps
+            player.vy = Math.max(player.vy, 460 + player.consecutiveGaps * 90);
 
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
             const passPoints = Math.round(25 * player.comboMultiplier);
@@ -208,13 +207,20 @@ export class PhysicsEngine {
     }
   }
 
+  // 90° Discrete Quadrant Step (Option 2: Tap left / right to snap)
+  public snapRotate(player: Player, dir: number): void {
+    const step = Math.PI * 0.5; // Exactly 90 degrees
+    this.applyRotation(player, dir * step);
+    sound.playSnapClick();
+  }
+
   public deactivateMeteor(player: Player): void {
     if (!player.isMeteor) return;
     player.isMeteor = false;
     player.meteorTimer = 0;
     player.meteorSmashesRemaining = 0;
     sound.stopCatMusic();
-    player.vy = Math.min(player.vy, 450); // Gentle smooth deceleration
+    player.vy = Math.min(player.vy, 450);
   }
 
   public resolveRingCollision(player: Player, ring: Ring): CollisionResult {

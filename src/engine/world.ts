@@ -43,7 +43,7 @@ export class WorldManager {
       this.generateUpToDepth(this.highestGeneratedDepth + 20);
     }
 
-    // Auto-rotate dynamic rings on later levels
+    // Dynamic rotation on very deep rings
     for (const r of this.rings) {
       if (r.rotSpeed !== 0) {
         r.rotation = (r.rotation + r.rotSpeed * dt) % (Math.PI * 2);
@@ -67,109 +67,54 @@ export class WorldManager {
     }
   }
 
+  // 4 Discrete 90° Quadrants for rhythmic Piano Tiles step mechanics
   public createRing(depth: number, y: number): Ring {
-    const sliceCount = 12;
-    const sliceAngle = (Math.PI * 2) / sliceCount;
-    const sliceTypes: SegmentType[] = new Array(sliceCount).fill('SAFE');
+    const quadrantCount = 4;
+    const quadrantAngle = (Math.PI * 2) / quadrantCount; // Exactly 90 degrees (PI / 2)
+    const quadrantTypes: SegmentType[] = ['SAFE', 'SAFE', 'SAFE', 'SAFE'];
 
-    // Progressive Difficulty Curve (Piano Tiles style: starts easy & wide, accelerates smoothly)
     if (depth === 0) {
-      // Ring 0: Super wide introductory gap (3 slices = 90 deg)
-      sliceTypes[0] = 'GAP';
-      sliceTypes[1] = 'GAP';
-      sliceTypes[2] = 'GAP';
+      // Ring 0: 3 GAPs (270° wide opening), 1 SAFE
+      quadrantTypes[0] = 'GAP';
+      quadrantTypes[1] = 'GAP';
+      quadrantTypes[2] = 'GAP';
     } else if (depth <= 4) {
-      // Early rings (1-4): Friendly wide gaps (2-3 slices), ZERO hazards!
-      const gapSlice = Math.floor(Math.random() * sliceCount);
-      sliceTypes[gapSlice] = 'GAP';
-      sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
-      if (Math.random() < 0.6) {
-        sliceTypes[(gapSlice + 2) % sliceCount] = 'GAP';
-      }
-    } else if (depth <= 9) {
-      // Mid-early rings (5-9): 2 gap slices (60 deg), 1 hazard slice
-      const gapSlice = Math.floor(Math.random() * sliceCount);
-      sliceTypes[gapSlice] = 'GAP';
-      sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
+      // Early rings (1-4): 2 GAPs (180° opening), 0 Hazards
+      const gapIdx = Math.floor(Math.random() * quadrantCount);
+      quadrantTypes[gapIdx] = 'GAP';
+      quadrantTypes[(gapIdx + 1) % quadrantCount] = 'GAP';
+    } else if (depth <= 12) {
+      // Mid rings (5-12): 1 GAP, 2 SAFEs, 1 HAZARD
+      const gapIdx = Math.floor(Math.random() * quadrantCount);
+      quadrantTypes[gapIdx] = 'GAP';
 
-      // 1 hazard placed opposite to gap
-      const hazardSlice = (gapSlice + 5 + Math.floor(Math.random() * 3)) % sliceCount;
-      if (sliceTypes[hazardSlice] === 'SAFE') {
-        sliceTypes[hazardSlice] = 'HAZARD';
-      }
-    } else if (depth <= 18) {
-      // Intermediate (10-18): 1-2 gap slices, 1-2 hazards
-      const gapSlice = Math.floor(Math.random() * sliceCount);
-      sliceTypes[gapSlice] = 'GAP';
-      if (Math.random() < 0.35) {
-        sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
-      }
-
-      let placed = 0;
-      let attempts = 0;
-      while (placed < 2 && attempts < 20) {
-        attempts++;
-        const candidate = Math.floor(Math.random() * sliceCount);
-        const nearGap =
-          sliceTypes[candidate] === 'GAP' ||
-          sliceTypes[(candidate + 1) % sliceCount] === 'GAP' ||
-          sliceTypes[(candidate + sliceCount - 1) % sliceCount] === 'GAP';
-        if (!nearGap && sliceTypes[candidate] === 'SAFE') {
-          sliceTypes[candidate] = 'HAZARD';
-          placed++;
-        }
-      }
+      // Place hazard opposite or adjacent to safe
+      const hazardIdx = (gapIdx + 2) % quadrantCount;
+      quadrantTypes[hazardIdx] = 'HAZARD';
     } else {
-      // Master tier (19+): Fast pace, 1-2 gaps, 2-3 hazards
-      const gapSlice = Math.floor(Math.random() * sliceCount);
-      sliceTypes[gapSlice] = 'GAP';
-
-      let placed = 0;
-      let attempts = 0;
-      const targetHazards = Math.random() < 0.5 ? 3 : 2;
-      while (placed < targetHazards && attempts < 25) {
-        attempts++;
-        const candidate = Math.floor(Math.random() * sliceCount);
-        const nearGap =
-          sliceTypes[candidate] === 'GAP' ||
-          sliceTypes[(candidate + 1) % sliceCount] === 'GAP' ||
-          sliceTypes[(candidate + sliceCount - 1) % sliceCount] === 'GAP';
-        if (!nearGap && sliceTypes[candidate] === 'SAFE') {
-          sliceTypes[candidate] = 'HAZARD';
-          placed++;
-        }
-      }
+      // Deep rings (13+): 1 GAP, 1 SAFE, 2 HAZARDS
+      const gapIdx = Math.floor(Math.random() * quadrantCount);
+      quadrantTypes[gapIdx] = 'GAP';
+      const hazard1 = (gapIdx + 1) % quadrantCount;
+      const hazard2 = (gapIdx + 3) % quadrantCount;
+      quadrantTypes[hazard1] = 'HAZARD';
+      quadrantTypes[hazard2] = 'HAZARD';
     }
 
-    // Merge adjacent slices into contiguous segments
     const segments: RingSegment[] = [];
-    let curType = sliceTypes[0];
-    let curStart = 0;
-
-    for (let i = 1; i < sliceCount; i++) {
-      if (sliceTypes[i] !== curType) {
-        segments.push({
-          startAngle: curStart * sliceAngle,
-          endAngle: i * sliceAngle,
-          type: curType
-        });
-        curType = sliceTypes[i];
-        curStart = i;
-      }
+    for (let i = 0; i < quadrantCount; i++) {
+      segments.push({
+        startAngle: i * quadrantAngle,
+        endAngle: (i + 1) * quadrantAngle,
+        type: quadrantTypes[i]
+      });
     }
-    segments.push({
-      startAngle: curStart * sliceAngle,
-      endAngle: Math.PI * 2,
-      type: curType
-    });
 
     const theme = COLOR_THEMES[depth % COLOR_THEMES.length];
 
-    // Gentle auto rotation on higher depths
-    let rotSpeed = 0;
-    if (depth >= 8 && Math.random() < 0.3) {
-      rotSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.25 + Math.min(depth * 0.015, 0.6));
-    }
+    // Align base rotation to clean 90° multiples
+    const baseQuadrant = Math.floor(Math.random() * 4);
+    const rotation = baseQuadrant * quadrantAngle;
 
     return {
       id: this.nextRingId++,
@@ -177,8 +122,8 @@ export class WorldManager {
       y,
       radius: this.ringRadius,
       thickness: 24,
-      rotation: Math.random() * Math.PI * 2,
-      rotSpeed,
+      rotation,
+      rotSpeed: 0,
       color: theme.color,
       glow: theme.glow,
       segments,
@@ -219,7 +164,6 @@ export class WorldManager {
     }
   }
 
-  // Smooth 2.5D renderer
   public draw(
     ctx: CanvasRenderingContext2D,
     cameraY: number,
@@ -250,7 +194,7 @@ export class WorldManager {
         const end = seg.endAngle + totalRotation;
 
         if (seg.type === 'GAP') {
-          // Clear visual portal gate indicators
+          // Clear 90-degree portal opening with dotted arc
           ctx.lineWidth = 3.5;
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
           ctx.setLineDash([4, 6]);
@@ -259,7 +203,7 @@ export class WorldManager {
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Glowing gate entry beacons
+          // Quadrant boundary entry beacons
           const p1X = centerX + Math.cos(start) * rxRadius;
           const p1Y = ry + Math.sin(start) * ryRadius;
           const p2X = centerX + Math.cos(end) * rxRadius;
@@ -281,29 +225,29 @@ export class WorldManager {
 
         const isHazard = seg.type === 'HAZARD';
 
-        // Outer glow strip
+        // Outer glow stroke
         ctx.lineWidth = r.thickness + 5;
         ctx.lineCap = 'round';
         ctx.strokeStyle = isHazard ? 'rgba(255, 0, 59, 0.22)' : 'rgba(0, 240, 255, 0.18)';
         ctx.beginPath();
-        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
+        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.03, end - 0.03);
         ctx.stroke();
 
         // Main segment body
         ctx.lineWidth = r.thickness;
         ctx.strokeStyle = isHazard ? hazardColor : ringColor;
         ctx.beginPath();
-        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
+        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.03, end - 0.03);
         ctx.stroke();
 
         // Inner highlight
         ctx.lineWidth = 3.5;
         ctx.strokeStyle = isHazard ? '#ff99aa' : '#ffffff';
         ctx.beginPath();
-        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.04, end - 0.04);
+        ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.06, end - 0.06);
         ctx.stroke();
 
-        // Hazard warning tick mark
+        // Hazard indicator
         if (isHazard) {
           ctx.lineWidth = 2;
           ctx.strokeStyle = '#ffffff';

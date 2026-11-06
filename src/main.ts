@@ -17,16 +17,16 @@ class Game {
   private player: Player;
   private lastTime = 0;
 
-  // Pointer drag state
+  // Discrete 90-degree step rotation state
+  private targetRotation = 0;
+  private pointerStartX = 0;
+  private pointerStartTime = 0;
   private isPointerDown = false;
-  private lastPointerX = 0;
-
-  // Keyboard controls
-  private keys: { [key: string]: boolean } = {};
+  private swipeThreshold = 38;
 
   // Device Tilt (Gyroscope) controls (Inverted per user request)
   private isTiltEnabled = false;
-  private tiltDir = 0;
+  private tiltCooldown = 0;
 
   // DOM Elements
   private hudDepth: HTMLElement;
@@ -111,6 +111,14 @@ class Game {
     resize();
   }
 
+  // Option 2: 90-degree rhythmic step rotation
+  private snapStep(direction: number): void {
+    if (this.state !== 'PLAYING') return;
+    this.targetRotation += direction * (Math.PI * 0.5);
+    sound.playSnapClick();
+    this.juice.addShake(2, 0.08);
+  }
+
   private setupInputs(): void {
     const getClientX = (e: MouseEvent | TouchEvent): number => {
       return 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
@@ -124,24 +132,40 @@ class Game {
       }
 
       this.isPointerDown = true;
-      this.lastPointerX = getClientX(e);
-      this.player.rotationVelocity = 0;
+      this.pointerStartX = getClientX(e);
+      this.pointerStartTime = Date.now();
     };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-      if (!this.isPointerDown) return;
+      if (!this.isPointerDown || this.state !== 'PLAYING') return;
       const clientX = getClientX(e);
-      const deltaX = clientX - this.lastPointerX;
-      this.lastPointerX = clientX;
+      const deltaX = clientX - this.pointerStartX;
 
-      // Smooth, natural drag scaling
-      const rotSpeedFactor = 0.012;
-      this.physics.applyRotation(this.player, deltaX * rotSpeedFactor);
-      this.player.rotationVelocity = deltaX * 0.9;
+      // Swiping across threshold triggers discrete 90° snap
+      if (Math.abs(deltaX) >= this.swipeThreshold) {
+        this.snapStep(deltaX > 0 ? 1 : -1);
+        this.pointerStartX = clientX;
+      }
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e: MouseEvent | TouchEvent) => {
+      if (!this.isPointerDown) return;
       this.isPointerDown = false;
+
+      // Check quick tap on left/right half of screen
+      const elapsed = Date.now() - this.pointerStartTime;
+      const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as MouseEvent).clientX;
+      const dist = Math.abs(clientX - this.pointerStartX);
+
+      if (elapsed < 300 && dist < 25 && this.state === 'PLAYING') {
+        const rect = this.canvas.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        if (clientX < midX) {
+          this.snapStep(-1); // Tap left half = Step Left (90°)
+        } else {
+          this.snapStep(1);  // Tap right half = Step Right (90°)
+        }
+      }
     };
 
     this.canvas.addEventListener('mousedown', handlePointerDown);
@@ -152,18 +176,22 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
-    // Keyboard controls
+    // Keyboard support: A / Left Arrow = Step Left, D / Right Arrow = Step Right
     window.addEventListener('keydown', (e) => {
       sound.init();
-      this.keys[e.code] = true;
 
       if ((e.code === 'KeyR' || e.code === 'Enter' || e.code === 'Space') && (this.state === 'START' || this.state === 'CRASHED')) {
         this.startGame();
+        return;
       }
-    });
 
-    window.addEventListener('keyup', (e) => {
-      this.keys[e.code] = false;
+      if (this.state === 'PLAYING') {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+          this.snapStep(-1);
+        } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          this.snapStep(1);
+        }
+      }
     });
 
     // Inverted Tilt toggle
@@ -172,13 +200,16 @@ class Game {
     });
 
     window.addEventListener('deviceorientation', (e) => {
-      if (this.isTiltEnabled && e.gamma !== null) {
-        const deadzone = 3.0;
-        if (Math.abs(e.gamma) > deadzone) {
-          const clamped = Math.max(-35, Math.min(35, e.gamma));
-          this.tiltDir = clamped / 35;
-        } else {
-          this.tiltDir = 0;
+      if (this.isTiltEnabled && e.gamma !== null && this.state === 'PLAYING') {
+        const threshold = 18;
+        if (this.tiltCooldown <= 0) {
+          if (e.gamma < -threshold) {
+            this.snapStep(1); // Inverted: left tilt snaps right
+            this.tiltCooldown = 0.28;
+          } else if (e.gamma > threshold) {
+            this.snapStep(-1); // Inverted: right tilt snaps left
+            this.tiltCooldown = 0.28;
+          }
         }
       }
     });
@@ -202,7 +233,6 @@ class Game {
       }
     } else {
       this.isTiltEnabled = false;
-      this.tiltDir = 0;
       this.updateTiltButton();
     }
   }
@@ -221,11 +251,12 @@ class Game {
     this.screenMsg.innerHTML = `
       <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
         <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RHYTHMIC FREEFALL</p>
-        <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.7;">
-          🌀 <b>Sürükle / A-D:</b> Halkayı Çevir ve Boşluğa Hizala<br>
-          🎵 <b>Ritmik İniş:</b> Yavaştan Başla, İndikçe Hızlan!<br>
-          🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush & Engelleri Parçala!
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">90° RHYTHM FREEFALL</p>
+        <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.8;">
+          👈 <b>Sola Dokun / A:</b> Sola 90° Çevir<br>
+          👉 <b>Sağa Dokun / D:</b> Sağa 90° Çevir<br>
+          🎵 <b>Ritmik Adım:</b> Boşluğu Hizala, Piyano Sesiyle Ak!<br>
+          🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush!
         </div>
         <button class="btn-action pulse" id="btn-start">BAŞLA</button>
       </div>
@@ -260,6 +291,7 @@ class Game {
     this.world.reset();
     this.particles.clear();
 
+    this.targetRotation = 0;
     this.player.y = 90;
     this.player.vy = 260;
     this.player.consecutiveGaps = 0;
@@ -278,25 +310,13 @@ class Game {
   }
 
   private update(dt: number): void {
-    // Keyboard steering
-    let steerDir = 0;
-    if (this.keys['ArrowLeft'] || this.keys['KeyA']) steerDir += 1;
-    if (this.keys['ArrowRight'] || this.keys['KeyD']) steerDir -= 1;
-
-    // Inverted Tilt Steering
-    if (this.isTiltEnabled && Math.abs(this.tiltDir) > 0.04) {
-      steerDir += this.tiltDir * 1.5;
+    if (this.tiltCooldown > 0) {
+      this.tiltCooldown -= dt;
     }
 
-    if (steerDir !== 0) {
-      this.physics.applySteering(this.player, steerDir, dt);
-    }
-
-    // Momentum decay
-    if (!this.isPointerDown && Math.abs(this.player.rotationVelocity) > 0.05) {
-      this.physics.applyRotation(this.player, this.player.rotationVelocity * dt);
-      this.player.rotationVelocity *= Math.pow(0.85, dt * 60);
-    }
+    // Snappy, smooth 90° quadrant interpolation (feels tactile and physical)
+    const rotDiff = this.targetRotation - this.player.cylinderRotation;
+    this.player.cylinderRotation += rotDiff * Math.min(1, dt * 26);
 
     if (this.state === 'PLAYING') {
       this.world.update(dt, this.juice.cameraY);

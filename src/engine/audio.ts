@@ -1,4 +1,4 @@
-// Procedural Web Audio synthesizer with Chiptune Cat Melody & Piano Tile chimes.
+// Procedural Web Audio synthesizer with Chiptune Cat Melody, Piano Tile chimes & Tactile Rotary Snap.
 // Zero external assets, ultra-fast and lightweight.
 class SoundManager {
   private ctx: AudioContext | null = null;
@@ -27,7 +27,6 @@ class SoundManager {
   ];
 
   // Cute Chiptune Cat Melody Notes (Nyan Cat / Japanese 8-bit arcade motif)
-  // Frequencies in Hz: F#5, G#5, D#5, B4, D5, C#5, B4, C#5, D5, C#5, B4, C#5, D#5, F#5, G#5...
   private catMelody = [
     739.99, 830.61, 622.25, 622.25, 493.88, 587.33, 554.37, 493.88,
     493.88, 554.37, 587.33, 587.33, 554.37, 493.88, 554.37, 622.25,
@@ -66,6 +65,28 @@ class SoundManager {
     return this.isMuted;
   }
 
+  // Tactile 90-degree rotary snap click
+  public playSnapClick(): void {
+    if (!this.ensureContext() || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(650, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
   // Piano Tiles style crisp rhythmic note on every gap passed
   public playPianoTileNote(streak: number): void {
     if (!this.ensureContext() || !this.ctx) return;
@@ -74,15 +95,14 @@ class SoundManager {
     const noteIdx = (streak - 1) % this.pianoNotes.length;
     const freq = this.pianoNotes[noteIdx];
 
-    // High crisp piano chime (sine + overtone)
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(freq, now);
-    osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + 0.08);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.04, now + 0.08);
 
-    gain.gain.setValueAtTime(0.26, now);
+    gain.gain.setValueAtTime(0.28, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
     osc.connect(gain);
@@ -91,7 +111,7 @@ class SoundManager {
     osc.start(now);
     osc.stop(now + 0.2);
 
-    // Cute high sparkle overtone
+    // Overtone sparkle
     const harm = this.ctx.createOscillator();
     const harmGain = this.ctx.createGain();
     harm.type = 'sine';
@@ -113,7 +133,7 @@ class SoundManager {
     this.isCatMusicPlaying = true;
     this.catNoteIndex = 0;
 
-    const stepMs = 125; // ~150 BPM energetic 16th note rhythm
+    const stepMs = 125;
     const playNextNote = () => {
       if (!this.isCatMusicPlaying || !this.ctx) return;
 
@@ -121,7 +141,6 @@ class SoundManager {
       const freq = this.catMelody[this.catNoteIndex % this.catMelody.length];
       this.catNoteIndex++;
 
-      // Melody note: bouncy square wave
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'square';
@@ -136,7 +155,6 @@ class SoundManager {
       osc.start(now);
       osc.stop(now + 0.12);
 
-      // Cute bass note on every 2nd beat
       if (this.catNoteIndex % 2 === 0) {
         const bassOsc = this.ctx.createOscillator();
         const bassGain = this.ctx.createGain();
@@ -164,27 +182,6 @@ class SoundManager {
     }
   }
 
-  public playPlungeWhoosh(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(450, now);
-    osc.frequency.exponentialRampToValueAtTime(120, now + 0.15);
-
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.18);
-  }
-
   public playBounce(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
@@ -196,7 +193,7 @@ class SoundManager {
     osc.frequency.setValueAtTime(160, now);
     osc.frequency.exponentialRampToValueAtTime(420, now + 0.08);
 
-    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.setValueAtTime(0.24, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     osc.connect(gain);
