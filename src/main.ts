@@ -22,7 +22,8 @@ class Game {
   private pointerStartX = 0;
   private pointerStartTime = 0;
   private isPointerDown = false;
-  private swipeThreshold = 38;
+  private swipeThreshold = 36;
+  private guidePulseTimer = 0;
 
   // Device Tilt (Gyroscope) controls (Inverted per user request)
   private isTiltEnabled = false;
@@ -33,6 +34,7 @@ class Game {
   private hudBest: HTMLElement;
   private hudMultiplier: HTMLElement;
   private hudGems: HTMLElement;
+  private btnRestartTop: HTMLElement;
   private btnTilt: HTMLElement;
   private meteorLabel: HTMLElement;
   private dot1: HTMLElement;
@@ -53,6 +55,7 @@ class Game {
     this.hudBest = document.getElementById('hud-best')!;
     this.hudMultiplier = document.getElementById('hud-multiplier')!;
     this.hudGems = document.getElementById('hud-gems')!;
+    this.btnRestartTop = document.getElementById('btn-restart-top')!;
     this.btnTilt = document.getElementById('btn-tilt')!;
     this.meteorLabel = document.getElementById('meteor-label')!;
     this.dot1 = document.getElementById('dot-1')!;
@@ -152,12 +155,12 @@ class Game {
       if (!this.isPointerDown) return;
       this.isPointerDown = false;
 
-      // Check quick tap on left/right half of screen
+      // Quick tap on left/right half of screen
       const elapsed = Date.now() - this.pointerStartTime;
       const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as MouseEvent).clientX;
       const dist = Math.abs(clientX - this.pointerStartX);
 
-      if (elapsed < 300 && dist < 25 && this.state === 'PLAYING') {
+      if (elapsed < 320 && dist < 25 && this.state === 'PLAYING') {
         const rect = this.canvas.getBoundingClientRect();
         const midX = rect.left + rect.width / 2;
         if (clientX < midX) {
@@ -176,11 +179,22 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
+    // Top restart icon
+    this.btnRestartTop.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.startGame();
+    });
+
     // Keyboard support: A / Left Arrow = Step Left, D / Right Arrow = Step Right
     window.addEventListener('keydown', (e) => {
       sound.init();
 
-      if ((e.code === 'KeyR' || e.code === 'Enter' || e.code === 'Space') && (this.state === 'START' || this.state === 'CRASHED')) {
+      if ((e.code === 'KeyR' || e.code === 'Enter') && (this.state === 'START' || this.state === 'CRASHED')) {
+        this.startGame();
+        return;
+      }
+
+      if (e.code === 'KeyR') {
         this.startGame();
         return;
       }
@@ -251,11 +265,11 @@ class Game {
     this.screenMsg.innerHTML = `
       <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
         <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">90° RHYTHM FREEFALL</p>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RİTİM & AKIŞ MODU</p>
         <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.8;">
-          👈 <b>Sola Dokun / A:</b> Sola 90° Çevir<br>
-          👉 <b>Sağa Dokun / D:</b> Sağa 90° Çevir<br>
-          🎵 <b>Ritmik Adım:</b> Boşluğu Hizala, Piyano Sesiyle Ak!<br>
+          👈 <b>Sola Dokun / A:</b> Sola Çevir<br>
+          👉 <b>Sağa Dokun / D:</b> Sağa Çevir<br>
+          ✨ <b>Yeşil Oku Takip Et:</b> Delikleri Ritimle Geç, Akorları Yakala!<br>
           🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush!
         </div>
         <button class="btn-action pulse" id="btn-start">BAŞLA</button>
@@ -270,11 +284,11 @@ class Game {
   private showCrashScreen(): void {
     this.juice.addShake(22, 0.45);
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(30, 4, 15, 0.95); border: 2px solid #ff003b; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(255, 0, 59, 0.6);">
-        <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #ff003b; text-shadow: 0 0 14px #ff003b; margin-bottom: 2px;">PARÇALANDIN!</h2>
-        <p style="color: #00f0ff; font-weight: 800; font-size: 22px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
+      <div style="background: rgba(30, 4, 15, 0.95); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.6);">
+        <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">DALIŞ TAMAMLANDI!</h2>
+        <p style="color: #ff007f; font-weight: 800; font-size: 22px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
         <p style="color: #ffe600; font-weight: 700; font-size: 15px; margin-bottom: 12px;">SKOR: ${this.player.score}</p>
-        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff003b, #ffaa00);">TEKRAR [R / Tıkla]</button>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #00f0ff, #ff007f);">YENİDEN BAŞLA [R]</button>
       </div>
     `;
 
@@ -313,8 +327,9 @@ class Game {
     if (this.tiltCooldown > 0) {
       this.tiltCooldown -= dt;
     }
+    this.guidePulseTimer += dt * 8;
 
-    // Snappy, smooth 90° quadrant interpolation (feels tactile and physical)
+    // Smooth snappy 90° interpolation
     const rotDiff = this.targetRotation - this.player.cylinderRotation;
     this.player.cylinderRotation += rotDiff * Math.min(1, dt * 26);
 
@@ -338,7 +353,7 @@ class Game {
           this.juice.addShake(15, 0.3);
         },
         () => {
-          this.juice.addShake(4, 0.08);
+          this.juice.addShake(3, 0.08);
         }
       );
 
@@ -382,7 +397,6 @@ class Game {
 
     this.ctx.clearRect(0, 0, width, height);
 
-    // Dynamic 2.5D background tunnel with active color theme
     this.juice.drawBackground(
       this.ctx,
       width,
@@ -408,8 +422,8 @@ class Game {
       this.player.colorThemeIndex
     );
 
-    // Draw Laser Aim Guide Line
-    this.drawLaserAimGuide();
+    // Draw Smart Directional Guidance Arrows (Tells the player exact rotation needed!)
+    this.drawSmartDirectionalGuidance();
 
     // Draw aerodynamic dive trail
     for (const t of this.player.trailHistory) {
@@ -432,35 +446,70 @@ class Game {
     this.ctx.restore();
   }
 
-  private drawLaserAimGuide(): void {
+  // Option A: Smart Directional Guidance (◀ SOLA / SAĞA ▶ / ▼ DÜŞÜŞ)
+  private drawSmartDirectionalGuidance(): void {
     const upcomingRing = this.world.rings.find((r) => !r.isBroken && r.y > this.player.y);
     if (!upcomingRing) return;
 
-    const result = this.physics.resolveRingCollision(this.player, upcomingRing);
-    const isAlignedWithGap = result.action === 'PASS_GAP';
-    const isAlignedWithHazard = result.action === 'CRASH';
+    const guide = this.physics.getGuideDirection(this.player, upcomingRing);
+    const pulse = 0.75 + 0.25 * Math.sin(this.guidePulseTimer);
 
     this.ctx.save();
-    const startY = this.player.y + this.player.radius + 4;
+    const px = this.player.x;
+    const py = this.player.y;
     const targetY = upcomingRing.y;
 
-    this.ctx.lineWidth = isAlignedWithGap ? 2.5 : 1.5;
-    this.ctx.strokeStyle = isAlignedWithGap
-      ? 'rgba(0, 255, 204, 0.75)'
-      : (isAlignedWithHazard ? 'rgba(255, 0, 59, 0.75)' : 'rgba(255, 255, 255, 0.25)');
+    if (guide.step === 0) {
+      // 1. ALIGNED WITH GAP! (Luminous green laser lane)
+      this.ctx.lineWidth = 2.5;
+      this.ctx.strokeStyle = `rgba(57, 255, 20, ${pulse})`;
+      this.ctx.setLineDash([6, 4]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(px, py + this.player.radius + 4);
+      this.ctx.lineTo(px, targetY);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
 
-    this.ctx.setLineDash(isAlignedWithGap ? [6, 4] : [3, 5]);
-    this.ctx.beginPath();
-    this.ctx.moveTo(this.player.x, startY);
-    this.ctx.lineTo(this.player.x, targetY);
-    this.ctx.stroke();
-    this.ctx.setLineDash([]);
+      // Green target reticle
+      this.ctx.fillStyle = '#39ff14';
+      this.ctx.beginPath();
+      this.ctx.arc(px, targetY, 5 * pulse, 0, Math.PI * 2);
+      this.ctx.fill();
 
-    // Lane Target Reticle at the ring surface
-    this.ctx.fillStyle = isAlignedWithGap ? '#00ffcc' : (isAlignedWithHazard ? '#ff003b' : '#ffffff');
-    this.ctx.beginPath();
-    this.ctx.arc(this.player.x, targetY, isAlignedWithGap ? 4.5 : 3, 0, Math.PI * 2);
-    this.ctx.fill();
+      // Downward chevron
+      this.ctx.font = '900 12px "Orbitron", monospace';
+      this.ctx.fillStyle = `rgba(57, 255, 20, ${pulse})`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('▼ DÜŞÜŞ ▼', px, py + this.player.radius + 20);
+    } else if (guide.step === -1) {
+      // 2. TURN LEFT! (Pulsing neon chevron on the left)
+      const arrowX = px - 55 - (1 - pulse) * 8;
+      this.ctx.font = '900 18px "Orbitron", monospace';
+      this.ctx.fillStyle = '#00f0ff';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('◀◀', arrowX, py + 5);
+
+      this.ctx.font = '800 10px "Orbitron", monospace';
+      this.ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
+      this.ctx.fillText('SOL', arrowX, py + 18);
+    } else if (guide.step === 1) {
+      // 3. TURN RIGHT! (Pulsing neon chevron on the right)
+      const arrowX = px + 55 + (1 - pulse) * 8;
+      this.ctx.font = '900 18px "Orbitron", monospace';
+      this.ctx.fillStyle = '#00f0ff';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('▶▶', arrowX, py + 5);
+
+      this.ctx.font = '800 10px "Orbitron", monospace';
+      this.ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
+      this.ctx.fillText('SAĞ', arrowX, py + 18);
+    } else if (guide.step === 2) {
+      // 4. OPPOSITE (2 steps)
+      this.ctx.font = '900 14px "Orbitron", monospace';
+      this.ctx.fillStyle = 'rgba(255, 170, 0, 0.85)';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('◀ 2x ▶', px, py + this.player.radius + 18);
+    }
 
     this.ctx.restore();
   }

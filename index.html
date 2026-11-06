@@ -72,6 +72,7 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      pointer-events: auto;
     }
     .hud-stat-left {
       display: flex;
@@ -101,6 +102,29 @@
       letter-spacing: 0.5px;
       margin-top: 3px;
     }
+    .hud-top-center {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn-top-icon {
+      background: rgba(20, 10, 40, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #00f0ff;
+      font-size: 14px;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    .btn-top-icon:active {
+      transform: scale(0.92);
+    }
+
     .hud-stat-right {
       text-align: right;
     }
@@ -117,6 +141,29 @@
       font-weight: 800;
       color: #ffe600;
       margin-top: 3px;
+    }
+
+    /* Screen Tap Zone Hints */
+    .tap-hints {
+      position: absolute;
+      top: 60%;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 18px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .tap-hint-left, .tap-hint-right {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.5);
+      background: rgba(10, 5, 25, 0.4);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
     .hud-bottom {
@@ -229,10 +276,19 @@
           <div class="hud-depth" id="hud-depth">0M</div>
           <div class="hud-best" id="hud-best">BEST 0M</div>
         </div>
+        <div class="hud-top-center">
+          <button id="btn-restart-top" class="btn-top-icon" title="Yeniden Başlat">🔄</button>
+        </div>
         <div class="hud-stat-right">
           <div class="hud-multiplier" id="hud-multiplier">x1.0</div>
           <div class="hud-gems" id="hud-gems">💎 0</div>
         </div>
+      </div>
+
+      <!-- Subtle Screen Tap Zone Hints -->
+      <div class="tap-hints">
+        <span class="tap-hint-left">◀ SOL DOKUN</span>
+        <span class="tap-hint-right">SAĞ DOKUN ▶</span>
       </div>
 
       <div class="hud-bottom">

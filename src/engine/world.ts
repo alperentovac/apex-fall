@@ -1,13 +1,13 @@
 import { Ring, RingSegment, SegmentType, Gem } from '../types';
 
 export const COLOR_THEMES = [
-  { color: '#00f0ff', glow: 'rgba(0, 240, 255, 0.4)', hazard: '#ff0044' }, // Cyber Cyan
-  { color: '#ff007f', glow: 'rgba(255, 0, 127, 0.4)', hazard: '#ffea00' }, // Neon Rose
-  { color: '#39ff14', glow: 'rgba(57, 255, 20, 0.4)', hazard: '#ff0055' },  // Acid Matrix
-  { color: '#ffaa00', glow: 'rgba(255, 170, 0, 0.4)', hazard: '#ff0044' }, // Solar Flare
-  { color: '#b000ff', glow: 'rgba(176, 0, 255, 0.4)', hazard: '#00ffea' }, // Void Violet
-  { color: '#ffe600', glow: 'rgba(255, 230, 0, 0.4)', hazard: '#ff0055' }, // Electric Gold
-  { color: '#00ffcc', glow: 'rgba(0, 255, 204, 0.4)', hazard: '#ff0066' }  // Hyper Teal
+  { color: '#00f0ff', glow: 'rgba(0, 240, 255, 0.4)' }, // Cyber Cyan
+  { color: '#ff007f', glow: 'rgba(255, 0, 127, 0.4)' }, // Neon Rose
+  { color: '#39ff14', glow: 'rgba(57, 255, 20, 0.4)' }, // Acid Matrix
+  { color: '#ffaa00', glow: 'rgba(255, 170, 0, 0.4)' }, // Solar Flare
+  { color: '#b000ff', glow: 'rgba(176, 0, 255, 0.4)' }, // Void Violet
+  { color: '#ffe600', glow: 'rgba(255, 230, 0, 0.4)' }, // Electric Gold
+  { color: '#00ffcc', glow: 'rgba(0, 255, 204, 0.4)' }  // Hyper Teal
 ];
 
 export class WorldManager {
@@ -43,7 +43,6 @@ export class WorldManager {
       this.generateUpToDepth(this.highestGeneratedDepth + 20);
     }
 
-    // Dynamic rotation on very deep rings
     for (const r of this.rings) {
       if (r.rotSpeed !== 0) {
         r.rotation = (r.rotation + r.rotSpeed * dt) % (Math.PI * 2);
@@ -51,7 +50,6 @@ export class WorldManager {
       }
     }
 
-    // Update gems floating animation
     for (const g of this.gems) {
       g.pulseOffset += dt * 3.5;
     }
@@ -67,38 +65,29 @@ export class WorldManager {
     }
   }
 
-  // 4 Discrete 90° Quadrants for rhythmic Piano Tiles step mechanics
+  // Option A: 4 Quadrants, Zero Red Hazards! Pure Flow & Rhythm.
   public createRing(depth: number, y: number): Ring {
     const quadrantCount = 4;
-    const quadrantAngle = (Math.PI * 2) / quadrantCount; // Exactly 90 degrees (PI / 2)
+    const quadrantAngle = (Math.PI * 2) / quadrantCount; // Exactly 90 degrees
     const quadrantTypes: SegmentType[] = ['SAFE', 'SAFE', 'SAFE', 'SAFE'];
 
     if (depth === 0) {
-      // Ring 0: 3 GAPs (270° wide opening), 1 SAFE
+      // Ring 0: 3 GAPs (270° wide opening)
       quadrantTypes[0] = 'GAP';
       quadrantTypes[1] = 'GAP';
       quadrantTypes[2] = 'GAP';
-    } else if (depth <= 4) {
-      // Early rings (1-4): 2 GAPs (180° opening), 0 Hazards
+    } else if (depth <= 5) {
+      // Early rings (1-5): 2 GAPs (180° opening)
       const gapIdx = Math.floor(Math.random() * quadrantCount);
       quadrantTypes[gapIdx] = 'GAP';
       quadrantTypes[(gapIdx + 1) % quadrantCount] = 'GAP';
-    } else if (depth <= 12) {
-      // Mid rings (5-12): 1 GAP, 2 SAFEs, 1 HAZARD
-      const gapIdx = Math.floor(Math.random() * quadrantCount);
-      quadrantTypes[gapIdx] = 'GAP';
-
-      // Place hazard opposite or adjacent to safe
-      const hazardIdx = (gapIdx + 2) % quadrantCount;
-      quadrantTypes[hazardIdx] = 'HAZARD';
     } else {
-      // Deep rings (13+): 1 GAP, 1 SAFE, 2 HAZARDS
+      // Later rings: 1 GAP (sometimes 2 for bonus flow)
       const gapIdx = Math.floor(Math.random() * quadrantCount);
       quadrantTypes[gapIdx] = 'GAP';
-      const hazard1 = (gapIdx + 1) % quadrantCount;
-      const hazard2 = (gapIdx + 3) % quadrantCount;
-      quadrantTypes[hazard1] = 'HAZARD';
-      quadrantTypes[hazard2] = 'HAZARD';
+      if (Math.random() < 0.25) {
+        quadrantTypes[(gapIdx + 1) % quadrantCount] = 'GAP';
+      }
     }
 
     const segments: RingSegment[] = [];
@@ -112,7 +101,7 @@ export class WorldManager {
 
     const theme = COLOR_THEMES[depth % COLOR_THEMES.length];
 
-    // Align base rotation to clean 90° multiples
+    // Align base rotation to clean 90° quadrant multiples
     const baseQuadrant = Math.floor(Math.random() * 4);
     const rotation = baseQuadrant * quadrantAngle;
 
@@ -187,23 +176,22 @@ export class WorldManager {
 
       const activeTheme = COLOR_THEMES[(r.colorIndex + playerColorIndex) % COLOR_THEMES.length];
       const ringColor = activeTheme.color;
-      const hazardColor = '#ff003b';
 
       for (const seg of r.segments) {
         const start = seg.startAngle + totalRotation;
         const end = seg.endAngle + totalRotation;
 
         if (seg.type === 'GAP') {
-          // Clear 90-degree portal opening with dotted arc
+          // Open 90-degree portal arc
           ctx.lineWidth = 3.5;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
           ctx.setLineDash([4, 6]);
           ctx.beginPath();
           ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Quadrant boundary entry beacons
+          // Portal gate entry beacons
           const p1X = centerX + Math.cos(start) * rxRadius;
           const p1Y = ry + Math.sin(start) * ryRadius;
           const p2X = centerX + Math.cos(end) * rxRadius;
@@ -223,42 +211,26 @@ export class WorldManager {
           continue;
         }
 
-        const isHazard = seg.type === 'HAZARD';
-
-        // Outer glow stroke
+        // SAFE Landing Sector
         ctx.lineWidth = r.thickness + 5;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = isHazard ? 'rgba(255, 0, 59, 0.22)' : 'rgba(0, 240, 255, 0.18)';
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
         ctx.beginPath();
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.03, end - 0.03);
         ctx.stroke();
 
-        // Main segment body
         ctx.lineWidth = r.thickness;
-        ctx.strokeStyle = isHazard ? hazardColor : ringColor;
+        ctx.strokeStyle = ringColor;
         ctx.beginPath();
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.03, end - 0.03);
         ctx.stroke();
 
-        // Inner highlight
+        // Inner glowing white accent
         ctx.lineWidth = 3.5;
-        ctx.strokeStyle = isHazard ? '#ff99aa' : '#ffffff';
+        ctx.strokeStyle = '#ffffff';
         ctx.beginPath();
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.06, end - 0.06);
         ctx.stroke();
-
-        // Hazard indicator
-        if (isHazard) {
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = '#ffffff';
-          const mid = (start + end) / 2;
-          const hx = centerX + Math.cos(mid) * rxRadius;
-          const hy = ry + Math.sin(mid) * ryRadius;
-          ctx.beginPath();
-          ctx.arc(hx, hy, 4, 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.fill();
-        }
       }
 
       // Depth tag
