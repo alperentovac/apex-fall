@@ -98,6 +98,13 @@ export interface Player {
   isOverdriveActive: boolean;
   overdriveTimer: number;
 
+  // Flow State & Kinetic Momentum
+  flowCombo: number;
+  isFlowActive: boolean;
+  reboundBufferTimer: number; // input buffering window
+  wallSlideSide: 'left' | 'right' | null;
+  wallSlideTimer: number;
+
   // Progression & Risk Stats
   currentFloor: number;
   maxFloorAchieved: number;

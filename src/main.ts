@@ -25,6 +25,7 @@ class Game {
   // Keyboard input states
   private keys: { [key: string]: boolean } = {};
   private keyboardAimAngle = -Math.PI / 2; // Upward
+  private groundIdleTime = 0;
 
   // DOM Elements
   private hudFloor: HTMLElement;
@@ -77,6 +78,11 @@ class Game {
       overdriveEnergy: 0,
       isOverdriveActive: false,
       overdriveTimer: 0,
+      flowCombo: 0,
+      isFlowActive: false,
+      reboundBufferTimer: 0,
+      wallSlideSide: null,
+      wallSlideTimer: 0,
       currentFloor: 0,
       maxFloorAchieved: savedBest,
       totalSparks: 0,
@@ -132,8 +138,17 @@ class Game {
         return;
       }
 
-      // Air Boost / Double Jump in mid-air
+      // Wall Kick in air if sliding
+      if (this.player.wallSlideSide !== null) {
+        if (this.physics.triggerWallJump(this.player, this.particles)) {
+          this.juice.addShake(8, 0.16);
+          return;
+        }
+      }
+
+      // Air Boost / Double Jump in mid-air & buffer perfect rebound
       if (!this.player.onGround) {
+        this.player.reboundBufferTimer = 0.2; // Input buffer for bunny hop landing
         if (this.physics.triggerAirJump(this.player, this.particles)) {
           this.juice.addShake(8, 0.18);
         }
@@ -217,7 +232,15 @@ class Game {
       }
 
       if (e.code === 'Space') {
+        if (this.player.wallSlideSide !== null) {
+          if (this.physics.triggerWallJump(this.player, this.particles)) {
+            this.juice.addShake(8, 0.16);
+            return;
+          }
+        }
+
         if (!this.player.onGround) {
+          this.player.reboundBufferTimer = 0.2; // Input buffer for bunny hop landing
           // Mid-air quick flap/boost
           if (this.physics.triggerAirJump(this.player, this.particles)) {
             this.juice.addShake(8, 0.18);
@@ -300,6 +323,11 @@ class Game {
     this.player.overdriveEnergy = 0;
     this.player.isOverdriveActive = false;
     this.player.overdriveTimer = 0;
+    this.player.flowCombo = 0;
+    this.player.isFlowActive = false;
+    this.player.reboundBufferTimer = 0;
+    this.player.wallSlideSide = null;
+    this.player.wallSlideTimer = 0;
     this.player.comboMultiplier = 1.0;
     this.player.comboStreak = 0;
     this.player.currentRunSparks = 0;
@@ -327,6 +355,17 @@ class Game {
         this.keyboardAimAngle = Math.max(-Math.PI * 0.85, Math.min(-Math.PI * 0.15, this.keyboardAimAngle));
       }
       this.player.aimAngle = this.keyboardAimAngle;
+    }
+
+    // Decay flow combo if standing still on platform too long
+    if (this.player.onGround && !this.player.isCharging && this.player.flowCombo > 0) {
+      this.groundIdleTime += dt;
+      if (this.groundIdleTime > 0.65) {
+        this.player.flowCombo = 0;
+        this.player.isFlowActive = false;
+      }
+    } else {
+      this.groundIdleTime = 0;
     }
 
     if (this.state === 'PLAYING') {
@@ -389,7 +428,8 @@ class Game {
       this.player.currentFloor,
       this.player.isFallingFast,
       this.player.comboMultiplier,
-      this.player.isOverdriveActive
+      this.player.isOverdriveActive,
+      this.player.isFlowActive
     );
 
     // World transform (Camera + Screen Shake)
@@ -433,11 +473,17 @@ class Game {
     this.ctx.scale(this.player.scaleX, this.player.scaleY);
 
     // Outer glow aura
-    this.ctx.shadowBlur = this.player.isOverdriveActive ? 28 : (this.player.comboMultiplier > 4 ? 18 : 14);
-    this.ctx.shadowColor = this.player.isOverdriveActive ? '#ffaa00' : (this.player.comboMultiplier > 4 ? '#ff00aa' : '#00f0ff');
+    const isFlow = this.player.isFlowActive;
+    this.ctx.shadowBlur = this.player.isOverdriveActive ? 28 : (isFlow ? 22 : (this.player.comboMultiplier > 4 ? 18 : 14));
+    this.ctx.shadowColor = this.player.isOverdriveActive
+      ? '#ffaa00'
+      : (isFlow ? '#ffff00' : (this.player.comboMultiplier > 4 ? '#ff00aa' : '#00f0ff'));
 
-    // Player body (Neon cyber core / Golden rocket core)
-    this.ctx.fillStyle = this.player.isOverdriveActive ? '#ffaa00' : (this.player.comboMultiplier > 4 ? '#ff007f' : '#00e5ff');
+    // Player body (Neon cyber core / Golden rocket core / Flow Electric)
+    this.ctx.fillStyle = this.player.isOverdriveActive
+      ? '#ffaa00'
+      : (isFlow ? '#ffea00' : (this.player.comboMultiplier > 4 ? '#ff007f' : '#00e5ff'));
+
     const hw = this.player.width / 2;
     const hh = this.player.height / 2;
     this.ctx.beginPath();

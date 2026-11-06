@@ -25,6 +25,11 @@ function createMockPlayer(overrides: Partial<Player> = {}): Player {
     overdriveEnergy: 0,
     isOverdriveActive: false,
     overdriveTimer: 0,
+    flowCombo: 0,
+    isFlowActive: false,
+    reboundBufferTimer: 0,
+    wallSlideSide: null,
+    wallSlideTimer: 0,
     currentFloor: 0,
     maxFloorAchieved: 0,
     totalSparks: 0,
@@ -135,5 +140,43 @@ describe('Apex Fall Game Logic', () => {
     physics.update(0.02, player, world.platforms, world.gems, particles, () => {});
     expect(player.vy).toBeLessThan(-1800);
     expect(player.y).toBeLessThan(600);
+  });
+
+  it('triggers Ninja Wall-Kick when sliding against walls', () => {
+    const physics = new PhysicsEngine();
+    const particles = new ParticleManager();
+
+    const player = createMockPlayer({
+      x: 13,
+      wallSlideSide: 'left',
+      onGround: false
+    });
+
+    const kicked = physics.triggerWallJump(player, particles);
+    expect(kicked).toBe(true);
+    expect(player.vx).toBeGreaterThan(400); // Kicks to the right
+    expect(player.vy).toBeLessThan(0); // Upward momentum
+  });
+
+  it('triggers Perfect Rebound (Bunny Hop) when input is buffered upon landing', () => {
+    const physics = new PhysicsEngine();
+    const particles = new ParticleManager();
+    const world = new WorldManager();
+
+    const targetPlat = world.platforms.find(p => p.floor === 2)!;
+    const player = createMockPlayer({
+      x: targetPlat.x + targetPlat.width / 2,
+      y: targetPlat.y - 13,
+      vy: 200,
+      onGround: false,
+      reboundBufferTimer: 0.15 // Buffered jump
+    });
+
+    physics.update(0.016, player, world.platforms, world.gems, particles, () => {});
+
+    // Player does not stay on ground, instantly rebounds upward
+    expect(player.onGround).toBe(false);
+    expect(player.vy).toBeLessThan(-900);
+    expect(player.flowCombo).toBe(1);
   });
 });
