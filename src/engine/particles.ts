@@ -122,6 +122,12 @@ export class ParticleManager {
     }
   }
 
+  public spawnCrashExplosion(x: number, y: number, color = '#ff0055'): void {
+    this.spawnRingShatter(x, y, color);
+    this.spawnShockwave(x, y, 90, color);
+    this.addFloatingText(x, y - 40, 'CRASH!', color, 28);
+  }
+
   public spawnRingShatter(x: number, y: number, color = '#ff003b'): void {
     const count = 22;
     for (let i = 0; i < count; i++) {

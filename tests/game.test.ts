@@ -170,9 +170,10 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
     expect(player.roundTimeRemaining).toBe(21.5); // +1.5s added!
   });
 
-  it('triggers safe bounce on SAFE landing pad without crashing', () => {
+  it('triggers immediate crash on closed obstacle collision (Option 3)', () => {
     const physics = new PhysicsEngine();
     const particles = new ParticleManager();
+    const sectorAngle = (Math.PI * 2) / 3;
 
     const testRing: Ring = {
       id: 2,
@@ -185,8 +186,9 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
       color: '#00f0ff',
       glow: 'rgba(0, 240, 255, 0.5)',
       segments: [
-        { startAngle: 0, endAngle: Math.PI, type: 'SAFE' },
-        { startAngle: Math.PI, endAngle: Math.PI * 2, type: 'GAP' }
+        { startAngle: 0, endAngle: sectorAngle, type: 'SAFE' }, // ContactAngle (PI/2 = ~1.57) lands here!
+        { startAngle: sectorAngle, endAngle: sectorAngle * 2, type: 'GAP' },
+        { startAngle: sectorAngle * 2, endAngle: Math.PI * 2, type: 'SAFE' }
       ],
       passed: false,
       isBroken: false,
@@ -196,13 +198,63 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
     const player = createMockPlayer({
       y: 295,
       vy: 500,
-      consecutiveGaps: 2,
+      isMeteor: false,
       cylinderRotation: 0
     });
 
-    let bounced = false;
     let crashed = false;
+    physics.update(
+      0.02,
+      player,
+      [testRing],
+      [],
+      particles,
+      () => {
+        crashed = true;
+      }
+    );
 
+    // Option 3: Hitting obstacle triggers instant crash!
+    expect(crashed).toBe(true);
+    expect(player.vy).toBe(0);
+  });
+
+  it('smashes closed obstacles without crashing when in Meteor mode', () => {
+    const physics = new PhysicsEngine();
+    const particles = new ParticleManager();
+    const sectorAngle = (Math.PI * 2) / 3;
+
+    const testRing: Ring = {
+      id: 3,
+      depth: 3,
+      y: 300,
+      radius: 140,
+      thickness: 26,
+      rotation: 0,
+      rotSpeed: 0,
+      color: '#ff0055',
+      glow: 'rgba(255, 0, 85, 0.5)',
+      segments: [
+        { startAngle: 0, endAngle: sectorAngle, type: 'SAFE' },
+        { startAngle: sectorAngle, endAngle: sectorAngle * 2, type: 'GAP' },
+        { startAngle: sectorAngle * 2, endAngle: Math.PI * 2, type: 'SAFE' }
+      ],
+      passed: false,
+      isBroken: false,
+      colorIndex: 0
+    };
+
+    const player = createMockPlayer({
+      y: 295,
+      vy: 1200,
+      isMeteor: true,
+      meteorTimer: 3.5,
+      meteorSmashesRemaining: 3,
+      cylinderRotation: 0
+    });
+
+    let crashed = false;
+    let smashed = false;
     physics.update(
       0.02,
       player,
@@ -213,17 +265,15 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
         crashed = true;
       },
       undefined,
-      undefined,
       () => {
-        bounced = true;
+        smashed = true;
       }
     );
 
-    // Never crashes on safe landing!
     expect(crashed).toBe(false);
-    expect(bounced).toBe(true);
-    expect(player.vy).toBeLessThan(0); // Bounced upward
-    expect(player.consecutiveGaps).toBe(0); // Streak reset
+    expect(smashed).toBe(true);
+    expect(testRing.isBroken).toBe(true);
+    expect(player.meteorSmashesRemaining).toBe(2);
   });
 });
 

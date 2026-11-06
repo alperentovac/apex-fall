@@ -6,7 +6,7 @@ export interface CollisionResult {
   hit: boolean;
   ring?: Ring;
   segment?: RingSegment;
-  action: 'PASS_GAP' | 'BOUNCE' | 'SMASH' | 'NONE';
+  action: 'PASS_GAP' | 'SMASH' | 'CRASH' | 'NONE';
 }
 
 export interface GuideResult {
@@ -15,11 +15,10 @@ export interface GuideResult {
 }
 
 export class PhysicsEngine {
-  public readonly baseGravity = 760;
-  public readonly bounceSpeed = 380;
-  public readonly baseTerminalVelocity = 560;
-  public readonly maxTerminalVelocity = 980;
-  public readonly meteorDiveSpeed = 1380;
+  public readonly baseGravity = 860;
+  public readonly baseTerminalVelocity = 680;
+  public readonly maxTerminalVelocity = 1150;
+  public readonly meteorDiveSpeed = 1450;
   public readonly worldWidth = 480;
   public readonly contactAngle = Math.PI / 2; // Front of the ellipse (facing camera)
 
@@ -29,10 +28,9 @@ export class PhysicsEngine {
     rings: Ring[],
     gems: Gem[],
     particles: ParticleManager,
-    _onCrash?: () => void,
+    onCrash?: () => void,
     onPassGap?: (ring: Ring) => void,
-    onSmashRing?: (ring: Ring) => void,
-    onBounce?: (ring: Ring) => void
+    onSmashRing?: (ring: Ring) => void
   ): void {
     player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 20);
     player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 20);
@@ -105,22 +103,16 @@ export class PhysicsEngine {
             }
 
             onSmashRing?.(ring);
-          } else if (result.action === 'BOUNCE') {
-            // Safe rhythmic bounce: resets streak, but zero instant death!
-            player.y = ring.y - 2;
-            player.vy = -this.bounceSpeed;
-            player.consecutiveGaps = 0;
-            this.deactivateMeteor(player);
-
-            player.scaleX = 1.35;
-            player.scaleY = 0.65;
-
-            sound.playBounce();
-            particles.spawnBounce(player.x, ring.y, ring.color);
-            particles.spawnShockwave(player.x, ring.y, 35, ring.color);
-
-            onBounce?.(ring);
-            break;
+          } else if (result.action === 'CRASH') {
+            // Option 3: Hitting a closed sector ends the game immediately!
+            player.y = ring.y - 4;
+            player.vy = 0;
+            player.isMeteor = false;
+            sound.stopCatMusic();
+            sound.playCrash();
+            particles.spawnCrashExplosion(player.x, ring.y, '#ff0055');
+            onCrash?.();
+            return;
           } else if (result.action === 'PASS_GAP') {
             ring.passed = true;
             player.consecutiveGaps++;
@@ -133,8 +125,8 @@ export class PhysicsEngine {
             // Hole color shift
             player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
 
-            // Rhythmic acceleration on chained drops, capped so it never runs away
-            const targetPassSpeed = 300 + Math.min(player.consecutiveGaps, 8) * 35;
+            // Rhythmic forward acceleration like Piano Tiles (fast, continuous momentum)
+            const targetPassSpeed = 400 + Math.min(player.consecutiveGaps, 12) * 50;
             player.vy = Math.min(effectiveTerminalVelocity, Math.max(player.vy, targetPassSpeed));
 
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
@@ -261,11 +253,11 @@ export class PhysicsEngine {
       return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
     }
 
-    // SAFE Landing Pad (Option A: zero red hazards)
+    // Closed obstacle sector (Option 3: Crash on impact unless in Meteor mode)
     if (player.isMeteor) {
       return { hit: true, ring, segment: targetSegment, action: 'SMASH' };
     }
-    return { hit: true, ring, segment: targetSegment, action: 'BOUNCE' };
+    return { hit: true, ring, segment: targetSegment, action: 'CRASH' };
   }
 
   public applyRotation(player: Player, deltaAngle: number): void {

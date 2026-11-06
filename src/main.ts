@@ -276,12 +276,13 @@ class Game {
   private showStartScreen(): void {
     this.screenMsg.innerHTML = `
       <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
-        <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">120° TRİ-SEKTÖR & RİTİM AKIŞI</p>
+        <h1 style="font-family: 'Orbitron'; font-size: 30px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">AKIŞKAN DİKEY SÖRF (SEÇENEK 3)</p>
         <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.8;">
           👈 <b>Sola Dokun / A:</b> Sola 120° Çevir<br>
           👉 <b>Sağa Dokun / D:</b> Sağa 120° Çevir<br>
-          ⏱️ <b>25s Süre Sınırı:</b> Her delik geçişinde +1.5s kazan!<br>
+          ⚡ <b>Kesintisiz Ritim:</b> Deliklerden ak, piyano akorlarını yakala!<br>
+          💥 <b>DİKKAT:</b> Kapalı engele çarparsan oyun biter!<br>
           🐱 <b>3 Seri Delik:</b> Kedi Müziği ile Meteor Crush (+2.5s)!
         </div>
         <button class="btn-action pulse" id="btn-start">BAŞLA</button>
@@ -294,13 +295,14 @@ class Game {
   }
 
   private showCrashScreen(): void {
-    this.juice.addShake(22, 0.45);
+    this.juice.addShake(25, 0.5);
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(30, 4, 15, 0.95); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.6);">
-        <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">DALIŞ TAMAMLANDI!</h2>
-        <p style="color: #ff007f; font-weight: 800; font-size: 22px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
-        <p style="color: #ffe600; font-weight: 700; font-size: 15px; margin-bottom: 12px;">SKOR: ${this.player.score}</p>
-        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #00f0ff, #ff007f);">YENİDEN BAŞLA [R]</button>
+      <div style="background: rgba(30, 4, 15, 0.96); border: 2px solid #ff0055; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(255, 0, 85, 0.6);">
+        <h2 style="font-family: 'Orbitron'; font-size: 26px; color: #ff0055; text-shadow: 0 0 14px #ff0055; margin-bottom: 2px;">💥 ENGELE ÇARPTIN!</h2>
+        <p style="color: #00f0ff; font-weight: 800; font-size: 24px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
+        <p style="color: #ffe600; font-weight: 700; font-size: 16px; margin-bottom: 6px;">SKOR: ${this.player.score}</p>
+        <p style="color: #b6ccf0; font-size: 13px; margin-bottom: 14px;">GEÇİLEN DELİK: ${this.player.perfectDropStreak}</p>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff0055, #00f0ff); font-weight: 900;">TEKRAR DALIŞ YAP [R]</button>
       </div>
     `;
 
@@ -337,7 +339,7 @@ class Game {
 
     this.targetRotation = 0;
     this.player.y = 90;
-    this.player.vy = 190;
+    this.player.vy = 260;
     this.player.roundTimeRemaining = 25.0;
     this.player.roundTimeTotal = 30.0;
     this.player.consecutiveGaps = 0;
@@ -362,9 +364,9 @@ class Game {
     }
     this.guidePulseTimer += dt * 8;
 
-    // Smooth snappy 120° interpolation
+    // Smooth snappy 120° magnetic interpolation
     const rotDiff = this.targetRotation - this.player.cylinderRotation;
-    this.player.cylinderRotation += rotDiff * Math.min(1, dt * 26);
+    this.player.cylinderRotation += rotDiff * Math.min(1, dt * 34);
 
     if (this.state === 'PLAYING') {
       this.player.roundTimeRemaining -= dt;
@@ -388,13 +390,10 @@ class Game {
           this.showCrashScreen();
         },
         () => {
-          this.juice.addShake(5, 0.1);
+          this.juice.addShake(4, 0.08);
         },
         () => {
-          this.juice.addShake(15, 0.3);
-        },
-        () => {
-          this.juice.addShake(3, 0.08);
+          this.juice.addShake(16, 0.3);
         }
       );
 
