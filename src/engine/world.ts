@@ -18,7 +18,7 @@ export class WorldManager {
   private nextGemId = 1;
 
   public readonly worldWidth = 480;
-  public readonly ringSpacing = 155;
+  public readonly ringSpacing = 150;
   public readonly ringRadius = 135;
   public readonly startY = 220;
 
@@ -33,7 +33,7 @@ export class WorldManager {
     this.nextRingId = 1;
     this.nextGemId = 1;
 
-    // Generate initial rings
+    // Generate initial 30 rings
     this.generateUpToDepth(30);
   }
 
@@ -43,7 +43,7 @@ export class WorldManager {
       this.generateUpToDepth(this.highestGeneratedDepth + 20);
     }
 
-    // Auto-rotate dynamic rings
+    // Auto-rotate dynamic rings on later levels
     for (const r of this.rings) {
       if (r.rotSpeed !== 0) {
         r.rotation = (r.rotation + r.rotSpeed * dt) % (Math.PI * 2);
@@ -72,46 +72,76 @@ export class WorldManager {
     const sliceAngle = (Math.PI * 2) / sliceCount;
     const sliceTypes: SegmentType[] = new Array(sliceCount).fill('SAFE');
 
-    // Ring 0: Wide start gaps and 0 hazards
+    // Progressive Difficulty Curve (Piano Tiles style: starts easy & wide, accelerates smoothly)
     if (depth === 0) {
+      // Ring 0: Super wide introductory gap (3 slices = 90 deg)
       sliceTypes[0] = 'GAP';
       sliceTypes[1] = 'GAP';
-    } else {
-      // 1 or 2 Gap slices
-      const gapSliceIndex = Math.floor(Math.random() * sliceCount);
-      sliceTypes[gapSliceIndex] = 'GAP';
-      if (depth < 6 || Math.random() < 0.4) {
-        sliceTypes[(gapSliceIndex + 1) % sliceCount] = 'GAP';
+      sliceTypes[2] = 'GAP';
+    } else if (depth <= 4) {
+      // Early rings (1-4): Friendly wide gaps (2-3 slices), ZERO hazards!
+      const gapSlice = Math.floor(Math.random() * sliceCount);
+      sliceTypes[gapSlice] = 'GAP';
+      sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
+      if (Math.random() < 0.6) {
+        sliceTypes[(gapSlice + 2) % sliceCount] = 'GAP';
+      }
+    } else if (depth <= 9) {
+      // Mid-early rings (5-9): 2 gap slices (60 deg), 1 hazard slice
+      const gapSlice = Math.floor(Math.random() * sliceCount);
+      sliceTypes[gapSlice] = 'GAP';
+      sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
+
+      // 1 hazard placed opposite to gap
+      const hazardSlice = (gapSlice + 5 + Math.floor(Math.random() * 3)) % sliceCount;
+      if (sliceTypes[hazardSlice] === 'SAFE') {
+        sliceTypes[hazardSlice] = 'HAZARD';
+      }
+    } else if (depth <= 18) {
+      // Intermediate (10-18): 1-2 gap slices, 1-2 hazards
+      const gapSlice = Math.floor(Math.random() * sliceCount);
+      sliceTypes[gapSlice] = 'GAP';
+      if (Math.random() < 0.35) {
+        sliceTypes[(gapSlice + 1) % sliceCount] = 'GAP';
       }
 
-      // Hazards scale with depth
-      let hazardCount = 0;
-      if (depth >= 3 && depth < 8) {
-        hazardCount = 1;
-      } else if (depth >= 8 && depth < 16) {
-        hazardCount = Math.random() < 0.6 ? 2 : 1;
-      } else if (depth >= 16) {
-        hazardCount = Math.random() < 0.5 ? 3 : 2;
-      }
-
-      let placedHazards = 0;
+      let placed = 0;
       let attempts = 0;
-      while (placedHazards < hazardCount && attempts < 30) {
+      while (placed < 2 && attempts < 20) {
         attempts++;
         const candidate = Math.floor(Math.random() * sliceCount);
-        const isNearGap =
+        const nearGap =
           sliceTypes[candidate] === 'GAP' ||
           sliceTypes[(candidate + 1) % sliceCount] === 'GAP' ||
           sliceTypes[(candidate + sliceCount - 1) % sliceCount] === 'GAP';
-
-        if (!isNearGap && sliceTypes[candidate] === 'SAFE') {
+        if (!nearGap && sliceTypes[candidate] === 'SAFE') {
           sliceTypes[candidate] = 'HAZARD';
-          placedHazards++;
+          placed++;
+        }
+      }
+    } else {
+      // Master tier (19+): Fast pace, 1-2 gaps, 2-3 hazards
+      const gapSlice = Math.floor(Math.random() * sliceCount);
+      sliceTypes[gapSlice] = 'GAP';
+
+      let placed = 0;
+      let attempts = 0;
+      const targetHazards = Math.random() < 0.5 ? 3 : 2;
+      while (placed < targetHazards && attempts < 25) {
+        attempts++;
+        const candidate = Math.floor(Math.random() * sliceCount);
+        const nearGap =
+          sliceTypes[candidate] === 'GAP' ||
+          sliceTypes[(candidate + 1) % sliceCount] === 'GAP' ||
+          sliceTypes[(candidate + sliceCount - 1) % sliceCount] === 'GAP';
+        if (!nearGap && sliceTypes[candidate] === 'SAFE') {
+          sliceTypes[candidate] = 'HAZARD';
+          placed++;
         }
       }
     }
 
-    // Merge adjacent slices
+    // Merge adjacent slices into contiguous segments
     const segments: RingSegment[] = [];
     let curType = sliceTypes[0];
     let curStart = 0;
@@ -135,10 +165,10 @@ export class WorldManager {
 
     const theme = COLOR_THEMES[depth % COLOR_THEMES.length];
 
-    // Auto rotation on deeper rings
+    // Gentle auto rotation on higher depths
     let rotSpeed = 0;
-    if (depth >= 5 && Math.random() < 0.35) {
-      rotSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.35 + Math.min(depth * 0.025, 0.9));
+    if (depth >= 8 && Math.random() < 0.3) {
+      rotSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.25 + Math.min(depth * 0.015, 0.6));
     }
 
     return {
@@ -172,7 +202,7 @@ export class WorldManager {
 
   private spawnRingGems(ring: Ring): void {
     for (const seg of ring.segments) {
-      if (seg.type === 'GAP' && Math.random() < 0.55) {
+      if (seg.type === 'GAP' && Math.random() < 0.6) {
         const midAngle = (seg.startAngle + seg.endAngle) / 2;
         this.gems.push({
           id: this.nextGemId++,
@@ -189,7 +219,7 @@ export class WorldManager {
     }
   }
 
-  // High performance 2.5D renderer without expensive shadowBlur
+  // Smooth 2.5D renderer
   public draw(
     ctx: CanvasRenderingContext2D,
     cameraY: number,
@@ -211,7 +241,6 @@ export class WorldManager {
       const ryRadius = r.radius * 0.35;
       const totalRotation = r.rotation + worldRotation;
 
-      // Dynamic theme color shifting based on player's current passage color
       const activeTheme = COLOR_THEMES[(r.colorIndex + playerColorIndex) % COLOR_THEMES.length];
       const ringColor = activeTheme.color;
       const hazardColor = '#ff003b';
@@ -221,17 +250,16 @@ export class WorldManager {
         const end = seg.endAngle + totalRotation;
 
         if (seg.type === 'GAP') {
-          // Visual Portal Gate indicators at gap boundaries for extreme readability!
-          // Draw bright dotted guide arc in the gap
-          ctx.lineWidth = 4;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+          // Clear visual portal gate indicators
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
           ctx.setLineDash([4, 6]);
           ctx.beginPath();
           ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Glowing gate edge beacons (circles) at gap entries
+          // Glowing gate entry beacons
           const p1X = centerX + Math.cos(start) * rxRadius;
           const p1Y = ry + Math.sin(start) * ryRadius;
           const p2X = centerX + Math.cos(end) * rxRadius;
@@ -239,24 +267,24 @@ export class WorldManager {
 
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(p1X, p1Y, 5, 0, Math.PI * 2);
-          ctx.arc(p2X, p2Y, 5, 0, Math.PI * 2);
+          ctx.arc(p1X, p1Y, 4.5, 0, Math.PI * 2);
+          ctx.arc(p2X, p2Y, 4.5, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = ringColor;
           ctx.beginPath();
-          ctx.arc(p1X, p1Y, 3, 0, Math.PI * 2);
-          ctx.arc(p2X, p2Y, 3, 0, Math.PI * 2);
+          ctx.arc(p1X, p1Y, 2.5, 0, Math.PI * 2);
+          ctx.arc(p2X, p2Y, 2.5, 0, Math.PI * 2);
           ctx.fill();
           continue;
         }
 
         const isHazard = seg.type === 'HAZARD';
 
-        // Outer glow stroke (replaces expensive shadowBlur on mobile!)
-        ctx.lineWidth = r.thickness + 6;
+        // Outer glow strip
+        ctx.lineWidth = r.thickness + 5;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = isHazard ? 'rgba(255, 0, 59, 0.25)' : 'rgba(0, 240, 255, 0.2)';
+        ctx.strokeStyle = isHazard ? 'rgba(255, 0, 59, 0.22)' : 'rgba(0, 240, 255, 0.18)';
         ctx.beginPath();
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
         ctx.stroke();
@@ -268,16 +296,16 @@ export class WorldManager {
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start, end);
         ctx.stroke();
 
-        // Inner bright accent strip
-        ctx.lineWidth = 4;
+        // Inner highlight
+        ctx.lineWidth = 3.5;
         ctx.strokeStyle = isHazard ? '#ff99aa' : '#ffffff';
         ctx.beginPath();
         ctx.ellipse(centerX, ry, rxRadius, ryRadius, 0, start + 0.04, end - 0.04);
         ctx.stroke();
 
-        // Hazard warning tick marks
+        // Hazard warning tick mark
         if (isHazard) {
-          ctx.lineWidth = 2.5;
+          ctx.lineWidth = 2;
           ctx.strokeStyle = '#ffffff';
           const mid = (start + end) / 2;
           const hx = centerX + Math.cos(mid) * rxRadius;
@@ -290,7 +318,7 @@ export class WorldManager {
       }
 
       // Depth tag
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.font = '800 10px "Orbitron", monospace';
       ctx.textAlign = 'center';
       ctx.fillText(`${r.depth}M`, centerX + rxRadius + 22, ry + 4);
@@ -324,7 +352,6 @@ export class WorldManager {
       ctx.closePath();
       ctx.fill();
 
-      // Gem center shine
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(0, -g.radius * 0.25, g.radius * 0.3, 0, Math.PI * 2);

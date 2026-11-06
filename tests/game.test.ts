@@ -15,8 +15,6 @@ function createMockPlayer(overrides: Partial<Player> = {}): Player {
     meteorTimer: 0,
     meteorMaxTimer: 4.0,
     meteorSmashesRemaining: 0,
-    isPlunging: false,
-    plungeBoost: 0,
     cylinderRotation: 0,
     rotationVelocity: 0,
     tiltAngle: 0,
@@ -334,12 +332,17 @@ describe('Vortex Dive - Meteor Fireball State Seam', () => {
     expect(player.vy).toBeLessThan(1000);
   });
 
-  it('triggers rapid plunge on user action (Piano Tiles flow)', () => {
+  it('progressively scales speed and gravity as depth increases (Piano Tiles flow)', () => {
     const physics = new PhysicsEngine();
-    const player = createMockPlayer({ vy: 200 });
+    const particles = new ParticleManager();
 
-    physics.triggerPlunge(player);
-    expect(player.isPlunging).toBe(true);
-    expect(player.vy).toBeGreaterThanOrEqual(physics.plungeSpeed);
+    const shallowPlayer = createMockPlayer({ currentDepth: 0, y: 100, vy: 0 });
+    physics.update(0.1, shallowPlayer, [], [], particles, () => {});
+
+    const deepPlayer = createMockPlayer({ currentDepth: 30, y: 100, vy: 0 });
+    physics.update(0.1, deepPlayer, [], [], particles, () => {});
+
+    // Deeper player has accelerated fall speed smoothly
+    expect(deepPlayer.vy).toBeGreaterThan(shallowPlayer.vy);
   });
 });

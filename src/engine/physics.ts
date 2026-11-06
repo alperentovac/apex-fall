@@ -10,11 +10,11 @@ export interface CollisionResult {
 }
 
 export class PhysicsEngine {
-  public readonly gravity = 2200; // Snappy fast gravity
-  public readonly bounceSpeed = 640;
-  public readonly terminalVelocity = 2600;
-  public readonly meteorDiveSpeed = 2400;
-  public readonly plungeSpeed = 1600;
+  // Accessible, gentle base gravity that ramps up smoothly with depth (Piano Tiles progression)
+  public readonly baseGravity = 1250;
+  public readonly bounceSpeed = 500;
+  public readonly baseTerminalVelocity = 1250;
+  public readonly meteorDiveSpeed = 1900;
   public readonly worldWidth = 480;
   public readonly contactAngle = Math.PI / 2; // Front of the ellipse (facing camera)
 
@@ -30,25 +30,25 @@ export class PhysicsEngine {
     onBounce?: (ring: Ring) => void
   ): void {
     // Decay squash and stretch
-    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 24);
-    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 24);
+    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 20);
+    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 20);
 
     // Aerodynamic diving trails
     player.trailHistory.unshift({
       x: player.x,
       y: player.y,
-      alpha: player.isMeteor ? 0.95 : 0.75,
+      alpha: player.isMeteor ? 0.9 : 0.65,
       scale: player.scaleX,
       isMeteor: player.isMeteor
     });
-    if (player.trailHistory.length > 10) {
+    if (player.trailHistory.length > 8) {
       player.trailHistory.pop();
     }
     for (const t of player.trailHistory) {
-      t.alpha -= dt * (player.isMeteor ? 3.0 : 4.5);
+      t.alpha -= dt * (player.isMeteor ? 3.0 : 4.0);
     }
 
-    // Meteor mode timer countdown (Fix: does NOT last forever!)
+    // Meteor mode countdown (finite duration)
     if (player.isMeteor) {
       player.meteorTimer -= dt;
       if (player.meteorTimer <= 0) {
@@ -56,11 +56,17 @@ export class PhysicsEngine {
       }
     }
 
+    // Progressive speed scaling: starts gentle, accelerates smoothly with depth
+    const depthProgress = Math.min(player.currentDepth * 0.012, 0.6);
+    const effectiveGravity = this.baseGravity * (1 + depthProgress);
+    const effectiveTerminalVelocity = player.isMeteor
+      ? this.meteorDiveSpeed
+      : this.baseTerminalVelocity + player.currentDepth * 15;
+
     // Apply gravity
-    player.vy += this.gravity * dt;
-    const maxSpeed = player.isMeteor ? this.meteorDiveSpeed : this.terminalVelocity;
-    if (player.vy > maxSpeed) {
-      player.vy = maxSpeed;
+    player.vy += effectiveGravity * dt;
+    if (player.vy > effectiveTerminalVelocity) {
+      player.vy = effectiveTerminalVelocity;
     }
 
     const prevY = player.y;
@@ -101,7 +107,6 @@ export class PhysicsEngine {
             particles.spawnShockwave(player.x, ring.y, 80, '#ffaa00');
             particles.addFloatingText(player.x, ring.y - 30, `SMASH +${smashPoints}!`, '#ffaa00', 26);
 
-            // Deplete remaining smashes in Meteor mode
             player.meteorSmashesRemaining--;
             if (player.meteorSmashesRemaining <= 0) {
               this.deactivateMeteor(player);
@@ -109,10 +114,10 @@ export class PhysicsEngine {
 
             onSmashRing?.(ring);
           } else if (result.action === 'BOUNCE') {
+            // Rhythmic bounce on safe platform
             player.y = ring.y - 2;
             player.vy = -this.bounceSpeed;
             player.consecutiveGaps = 0;
-            player.isPlunging = false;
             this.deactivateMeteor(player);
 
             player.scaleX = 1.35;
@@ -120,7 +125,7 @@ export class PhysicsEngine {
 
             sound.playBounce();
             particles.spawnBounce(player.x, ring.y, ring.color);
-            particles.spawnShockwave(player.x, ring.y, 40, ring.color);
+            particles.spawnShockwave(player.x, ring.y, 35, ring.color);
 
             onBounce?.(ring);
             break;
@@ -133,34 +138,36 @@ export class PhysicsEngine {
               player.maxDepthAchieved = player.currentDepth;
             }
 
-            // Every hole changes the color theme!
+            // Hole color shift
             player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
+
+            // Rhythmic speed boost for chained drops
+            player.vy = Math.max(player.vy, 460 + player.consecutiveGaps * 100);
 
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
             const passPoints = Math.round(25 * player.comboMultiplier);
             player.score += passPoints;
 
-            // Trigger Meteor Fireball Dive at 3+ consecutive gaps with finite duration & smashes
+            // Trigger Meteor Fireball Dive at 3+ consecutive gaps
             if (player.consecutiveGaps >= 3 && !player.isMeteor) {
               player.isMeteor = true;
               player.meteorTimer = 4.0;
               player.meteorMaxTimer = 4.0;
-              player.meteorSmashesRemaining = 4; // Max 4 smashes
+              player.meteorSmashesRemaining = 4;
               player.vy = Math.max(player.vy, this.meteorDiveSpeed);
 
               sound.playMeteorIgnite();
               sound.startCatMusic();
-              particles.spawnShockwave(player.x, ring.y, 110, '#ff3300');
-              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH!', '#ff3300', 32);
+              particles.spawnShockwave(player.x, ring.y, 100, '#ff3300');
+              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH!', '#ff3300', 30);
             } else {
-              // Piano Tiles style rapid chime
               sound.playPianoTileNote(player.consecutiveGaps);
               particles.spawnPassSparks(player.x, ring.y, ring.color);
               particles.addFloatingText(player.x, ring.y - 25, `+${passPoints}`, '#00f0ff', 20);
             }
 
-            player.scaleX = 0.75;
-            player.scaleY = 1.4;
+            player.scaleX = 0.8;
+            player.scaleY = 1.3;
 
             onPassGap?.(ring);
           }
@@ -170,9 +177,9 @@ export class PhysicsEngine {
 
     // Apply movement
     player.y = newY;
-    player.isFallingFast = player.vy > 950 || player.isMeteor;
+    player.isFallingFast = player.vy > 750 || player.isMeteor;
 
-    // Meteor flame particle burst
+    // Meteor flame particle
     if (player.isMeteor) {
       particles.spawnMeteorFlame(player.x, player.y);
     }
@@ -207,15 +214,7 @@ export class PhysicsEngine {
     player.meteorTimer = 0;
     player.meteorSmashesRemaining = 0;
     sound.stopCatMusic();
-    player.vy = Math.min(player.vy, 650); // Smooth deceleration back to normal fall speed
-  }
-
-  public triggerPlunge(player: Player): void {
-    player.isPlunging = true;
-    player.vy = Math.max(player.vy, this.plungeSpeed);
-    player.scaleX = 0.7;
-    player.scaleY = 1.45;
-    sound.playPlungeWhoosh();
+    player.vy = Math.min(player.vy, 450); // Gentle smooth deceleration
   }
 
   public resolveRingCollision(player: Player, ring: Ring): CollisionResult {
@@ -259,7 +258,7 @@ export class PhysicsEngine {
   }
 
   public applySteering(player: Player, dir: number, dt: number): void {
-    const steerSpeed = 5.2; // Snappier steering
+    const steerSpeed = 4.2;
     this.applyRotation(player, dir * steerSpeed * dt);
   }
 }

@@ -34,7 +34,6 @@ class Game {
   private hudMultiplier: HTMLElement;
   private hudGems: HTMLElement;
   private btnTilt: HTMLElement;
-  private btnPlunge: HTMLElement;
   private meteorLabel: HTMLElement;
   private dot1: HTMLElement;
   private dot2: HTMLElement;
@@ -55,7 +54,6 @@ class Game {
     this.hudMultiplier = document.getElementById('hud-multiplier')!;
     this.hudGems = document.getElementById('hud-gems')!;
     this.btnTilt = document.getElementById('btn-tilt')!;
-    this.btnPlunge = document.getElementById('btn-plunge')!;
     this.meteorLabel = document.getElementById('meteor-label')!;
     this.dot1 = document.getElementById('dot-1')!;
     this.dot2 = document.getElementById('dot-2')!;
@@ -67,15 +65,13 @@ class Game {
     this.player = {
       x: this.physics.worldWidth / 2,
       y: 90,
-      vy: 320,
+      vy: 260,
       radius: 12,
       consecutiveGaps: 0,
       isMeteor: false,
       meteorTimer: 0,
       meteorMaxTimer: 4.0,
       meteorSmashesRemaining: 0,
-      isPlunging: false,
-      plungeBoost: 0,
       cylinderRotation: 0,
       rotationVelocity: 0,
       tiltAngle: 0,
@@ -99,7 +95,7 @@ class Game {
     requestAnimationFrame(this.loop.bind(this));
   }
 
-  // Mobile optimization: limit DPR to 1.5 to eliminate mobile GPU lag
+  // Mobile optimization: DPR capped to 1.5 to eliminate mobile GPU lag
   private setupResize(): void {
     const resize = () => {
       const container = document.getElementById('game-container')!;
@@ -138,10 +134,10 @@ class Game {
       const deltaX = clientX - this.lastPointerX;
       this.lastPointerX = clientX;
 
-      // Ultra-snappy rotation
-      const rotSpeedFactor = 0.015;
+      // Smooth, natural drag scaling
+      const rotSpeedFactor = 0.012;
       this.physics.applyRotation(this.player, deltaX * rotSpeedFactor);
-      this.player.rotationVelocity = deltaX * 1.1;
+      this.player.rotationVelocity = deltaX * 0.9;
     };
 
     const handlePointerUp = () => {
@@ -156,30 +152,13 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
-    // Plunge button trigger (Piano Tiles quick drop)
-    this.btnPlunge.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sound.init();
-      if (this.state === 'PLAYING') {
-        this.physics.triggerPlunge(this.player);
-        this.juice.addShake(4, 0.1);
-      }
-    });
-
     // Keyboard controls
     window.addEventListener('keydown', (e) => {
       sound.init();
       this.keys[e.code] = true;
 
-      if ((e.code === 'KeyR' || e.code === 'Enter') && (this.state === 'START' || this.state === 'CRASHED')) {
+      if ((e.code === 'KeyR' || e.code === 'Enter' || e.code === 'Space') && (this.state === 'START' || this.state === 'CRASHED')) {
         this.startGame();
-        return;
-      }
-
-      // Fast Plunge on Space / Down Arrow / KeyS (Piano Tiles flow)
-      if ((e.code === 'Space' || e.code === 'ArrowDown' || e.code === 'KeyS') && this.state === 'PLAYING') {
-        this.physics.triggerPlunge(this.player);
-        this.juice.addShake(4, 0.1);
       }
     });
 
@@ -192,7 +171,6 @@ class Game {
       this.toggleTilt();
     });
 
-    // Inverted DeviceOrientation event (left tilts right, right tilts left per user request)
     window.addEventListener('deviceorientation', (e) => {
       if (this.isTiltEnabled && e.gamma !== null) {
         const deadzone = 3.0;
@@ -243,10 +221,10 @@ class Game {
     this.screenMsg.innerHTML = `
       <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
         <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RHYTHMIC SPEED FREEFALL</p>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RHYTHMIC FREEFALL</p>
         <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.7;">
-          🌀 <b>Sürükle / A-D:</b> Halkaları Döndür<br>
-          ⚡ <b>Space / Hızlı Dalış:</b> Piano Tiles Akışı İle Delikten Plonjon Yap!<br>
+          🌀 <b>Sürükle / A-D:</b> Halkayı Çevir ve Boşluğa Hizala<br>
+          🎵 <b>Ritmik İniş:</b> Yavaştan Başla, İndikçe Hızlan!<br>
           🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush & Engelleri Parçala!
         </div>
         <button class="btn-action pulse" id="btn-start">BAŞLA</button>
@@ -265,7 +243,7 @@ class Game {
         <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #ff003b; text-shadow: 0 0 14px #ff003b; margin-bottom: 2px;">PARÇALANDIN!</h2>
         <p style="color: #00f0ff; font-weight: 800; font-size: 22px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
         <p style="color: #ffe600; font-weight: 700; font-size: 15px; margin-bottom: 12px;">SKOR: ${this.player.score}</p>
-        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff003b, #ffaa00);">TEKRAR [R]</button>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff003b, #ffaa00);">TEKRAR [R / Tıkla]</button>
       </div>
     `;
 
@@ -283,12 +261,11 @@ class Game {
     this.particles.clear();
 
     this.player.y = 90;
-    this.player.vy = 320;
+    this.player.vy = 260;
     this.player.consecutiveGaps = 0;
     this.player.isMeteor = false;
     this.player.meteorTimer = 0;
     this.player.meteorSmashesRemaining = 0;
-    this.player.isPlunging = false;
     this.player.cylinderRotation = 0;
     this.player.rotationVelocity = 0;
     this.player.currentDepth = 0;
@@ -306,9 +283,9 @@ class Game {
     if (this.keys['ArrowLeft'] || this.keys['KeyA']) steerDir += 1;
     if (this.keys['ArrowRight'] || this.keys['KeyD']) steerDir -= 1;
 
-    // Inverted Tilt Steering (Per user request: tam ters yapıldı)
+    // Inverted Tilt Steering
     if (this.isTiltEnabled && Math.abs(this.tiltDir) > 0.04) {
-      steerDir += this.tiltDir * 1.6;
+      steerDir += this.tiltDir * 1.5;
     }
 
     if (steerDir !== 0) {
@@ -411,7 +388,7 @@ class Game {
       this.player.colorThemeIndex
     );
 
-    // Draw Laser Aim Guide Line (Piano Tiles precision lane marker)
+    // Draw Laser Aim Guide Line
     this.drawLaserAimGuide();
 
     // Draw aerodynamic dive trail
@@ -435,7 +412,6 @@ class Game {
     this.ctx.restore();
   }
 
-  // Piano Tiles style laser drop guide line showing exact alignment
   private drawLaserAimGuide(): void {
     const upcomingRing = this.world.rings.find((r) => !r.isBroken && r.y > this.player.y);
     if (!upcomingRing) return;

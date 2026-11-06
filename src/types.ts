@@ -89,10 +89,6 @@ export interface Player {
   meteorMaxTimer: number;
   meteorSmashesRemaining: number;
 
-  // Snappy Plunge / Fast Drop mechanic (Piano Tiles skill flow)
-  isPlunging: boolean;
-  plungeBoost: number;
-
   // Ring/Cylinder rotation steering
   cylinderRotation: number;
   rotationVelocity: number;
