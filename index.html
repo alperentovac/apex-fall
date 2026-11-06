@@ -107,6 +107,30 @@
       gap: 8px;
       align-items: center;
     }
+    .hud-timer {
+      font-family: 'Orbitron', monospace;
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffe600;
+      background: rgba(20, 10, 40, 0.75);
+      border: 1px solid rgba(255, 230, 0, 0.4);
+      border-radius: 14px;
+      padding: 4px 10px;
+      backdrop-filter: blur(4px);
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 8px rgba(255, 230, 0, 0.5);
+      white-space: nowrap;
+    }
+    .hud-timer.urgent {
+      color: #ff0055;
+      border-color: #ff0055;
+      text-shadow: 0 0 12px #ff0055;
+      animation: timerPulse 0.45s infinite alternate ease-in-out;
+    }
+    @keyframes timerPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.12); }
+    }
     .btn-top-icon {
       background: rgba(20, 10, 40, 0.7);
       border: 1px solid rgba(0, 240, 255, 0.3);
@@ -153,7 +177,13 @@
       justify-content: space-between;
       padding: 0 18px;
       pointer-events: none;
-      opacity: 0.7;
+      opacity: 0.75;
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .tap-hints.hidden {
+      opacity: 0 !important;
+      transform: scale(0.92);
+      pointer-events: none;
     }
     .tap-hint-left, .tap-hint-right {
       font-family: 'Orbitron', monospace;
@@ -277,6 +307,7 @@
           <div class="hud-best" id="hud-best">BEST 0M</div>
         </div>
         <div class="hud-top-center">
+          <div class="hud-timer" id="hud-timer">⏱️ 25.0s</div>
           <button id="btn-restart-top" class="btn-top-icon" title="Yeniden Başlat">🔄</button>
         </div>
         <div class="hud-stat-right">
@@ -286,7 +317,7 @@
       </div>
 
       <!-- Subtle Screen Tap Zone Hints -->
-      <div class="tap-hints">
+      <div class="tap-hints" id="tap-hints">
         <span class="tap-hint-left">◀ SOL DOKUN</span>
         <span class="tap-hint-right">SAĞ DOKUN ▶</span>
       </div>

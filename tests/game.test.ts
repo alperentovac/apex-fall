@@ -27,19 +27,21 @@ function createMockPlayer(overrides: Partial<Player> = {}): Player {
     totalGems: 0,
     comboMultiplier: 1.0,
     perfectDropStreak: 0,
+    roundTimeRemaining: 25.0,
+    roundTimeTotal: 30.0,
     isFallingFast: false,
     trailHistory: [],
     ...overrides
   };
 }
 
-describe('Vortex Dive - Option A Pure Flow & Zero Hazards Seam', () => {
-  it('generates 4 discrete 90-degree quadrant segments with zero hazards', () => {
+describe('Vortex Dive - Tri-Sector 120° & Pure Flow Seams', () => {
+  it('generates 3 discrete 120-degree sector segments with zero hazards', () => {
     const world = new WorldManager();
     expect(world.rings.length).toBeGreaterThan(20);
 
     for (const ring of world.rings) {
-      expect(ring.segments.length).toBe(4);
+      expect(ring.segments.length).toBe(3);
       // Zero red hazards in entire game!
       const hazards = ring.segments.filter((s) => s.type === 'HAZARD');
       expect(hazards.length).toBe(0);
@@ -51,22 +53,34 @@ describe('Vortex Dive - Option A Pure Flow & Zero Hazards Seam', () => {
     }
   });
 
-  it('provides accessible wide openings on early rings (depth 0-5)', () => {
+  it('guarantees max 2 consecutive rings can have the gap at the exact same slot', () => {
     const world = new WorldManager();
-    const ring0 = world.rings.find((r) => r.depth === 0)!;
-    expect(ring0).toBeDefined();
+    world.generateUpToDepth(80);
 
-    const ring0Gaps = ring0.segments.filter((s) => s.type === 'GAP');
-    expect(ring0Gaps.length).toBe(3); // 270° opening on ring 0!
+    let maxConsecutiveIdentical = 1;
+    let currentConsecutive = 1;
+    let prevSlot = -1;
 
-    const ring3 = world.rings.find((r) => r.depth === 3)!;
-    expect(ring3).toBeDefined();
-    const ring3Gaps = ring3.segments.filter((s) => s.type === 'GAP');
-    expect(ring3Gaps.length).toBeGreaterThanOrEqual(2); // At least 180° opening!
+    for (const ring of world.rings) {
+      const gapSlot = ring.segments.findIndex((s) => s.type === 'GAP');
+      if (gapSlot === prevSlot) {
+        currentConsecutive++;
+        if (currentConsecutive > maxConsecutiveIdentical) {
+          maxConsecutiveIdentical = currentConsecutive;
+        }
+      } else {
+        currentConsecutive = 1;
+        prevSlot = gapSlot;
+      }
+    }
+
+    // Must never exceed 2 consecutive identical gap positions!
+    expect(maxConsecutiveIdentical).toBeLessThanOrEqual(2);
   });
 
-  it('calculates smart directional guidance step correctly', () => {
+  it('calculates 120° smart directional guidance step correctly', () => {
     const physics = new PhysicsEngine();
+    const sectorAngle = (Math.PI * 2) / 3; // 120°
     const mockRing: Ring = {
       id: 99,
       depth: 1,
@@ -78,10 +92,9 @@ describe('Vortex Dive - Option A Pure Flow & Zero Hazards Seam', () => {
       color: '#00f0ff',
       glow: 'rgba(0, 240, 255, 0.5)',
       segments: [
-        { startAngle: 0, endAngle: Math.PI * 0.5, type: 'SAFE' },
-        { startAngle: Math.PI * 0.5, endAngle: Math.PI, type: 'GAP' }, // Aligned with contactAngle (PI/2)
-        { startAngle: Math.PI, endAngle: Math.PI * 1.5, type: 'SAFE' },
-        { startAngle: Math.PI * 1.5, endAngle: Math.PI * 2, type: 'SAFE' }
+        { startAngle: 0, endAngle: sectorAngle, type: 'GAP' }, // Covers contactAngle (PI/2 = ~1.57)
+        { startAngle: sectorAngle, endAngle: sectorAngle * 2, type: 'SAFE' },
+        { startAngle: sectorAngle * 2, endAngle: Math.PI * 2, type: 'SAFE' }
       ],
       passed: false,
       isBroken: false,
@@ -95,17 +108,18 @@ describe('Vortex Dive - Option A Pure Flow & Zero Hazards Seam', () => {
     expect(guideAligned.step).toBe(0);
     expect(guideAligned.label).toBe('DÜŞÜŞ HAZIR');
 
-    // Rotate player so gap is to the right
-    player.cylinderRotation = Math.PI * 0.5;
+    // Rotate player by 120°
+    physics.snapRotate(player, 1);
     const guideRotated = physics.getGuideDirection(player, mockRing);
     expect([-1, 1]).toContain(guideRotated.step);
   });
 });
 
 describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
-  it('allows clean freefall passage through GAP segment and shifts color theme', () => {
+  it('allows clean freefall passage through GAP segment and adds bonus round time', () => {
     const physics = new PhysicsEngine();
     const particles = new ParticleManager();
+    const sectorAngle = (Math.PI * 2) / 3;
 
     const testRing: Ring = {
       id: 1,
@@ -118,10 +132,9 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
       color: '#00f0ff',
       glow: 'rgba(0, 240, 255, 0.5)',
       segments: [
-        { startAngle: 0, endAngle: Math.PI * 0.5, type: 'SAFE' },
-        { startAngle: Math.PI * 0.5, endAngle: Math.PI, type: 'GAP' },
-        { startAngle: Math.PI, endAngle: Math.PI * 1.5, type: 'SAFE' },
-        { startAngle: Math.PI * 1.5, endAngle: Math.PI * 2, type: 'SAFE' }
+        { startAngle: 0, endAngle: sectorAngle, type: 'GAP' },
+        { startAngle: sectorAngle, endAngle: sectorAngle * 2, type: 'SAFE' },
+        { startAngle: sectorAngle * 2, endAngle: Math.PI * 2, type: 'SAFE' }
       ],
       passed: false,
       isBroken: false,
@@ -130,9 +143,11 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
 
     const player = createMockPlayer({
       y: 195,
-      vy: 400,
+      vy: 250,
       cylinderRotation: 0,
-      colorThemeIndex: 0
+      colorThemeIndex: 0,
+      roundTimeRemaining: 20.0,
+      roundTimeTotal: 30.0
     });
 
     let passedGap = false;
@@ -152,7 +167,7 @@ describe('Vortex Dive - Option A Collision & Rhythmic Seam', () => {
     expect(testRing.passed).toBe(true);
     expect(player.consecutiveGaps).toBe(1);
     expect(player.colorThemeIndex).toBe(1);
-    expect(player.vy).toBeGreaterThan(400);
+    expect(player.roundTimeRemaining).toBe(21.5); // +1.5s added!
   });
 
   it('triggers safe bounce on SAFE landing pad without crashing', () => {
@@ -258,21 +273,22 @@ describe('Vortex Dive - Meteor Fireball & Snap Step Seams', () => {
     expect(player.vy).toBeGreaterThanOrEqual(physics.meteorDiveSpeed);
   });
 
-  it('snaps rotation by exact 90 degrees on left/right discrete step', () => {
+  it('snaps rotation by exact 120 degrees on left/right discrete step', () => {
     const physics = new PhysicsEngine();
     const player = createMockPlayer({ cylinderRotation: 0 });
+    const sectorAngle = (Math.PI * 2) / 3;
 
     physics.snapRotate(player, 1);
-    expect(player.cylinderRotation).toBeCloseTo(Math.PI * 0.5, 4);
+    expect(player.cylinderRotation).toBeCloseTo(sectorAngle, 4);
 
     physics.snapRotate(player, 1);
-    expect(player.cylinderRotation).toBeCloseTo(Math.PI, 4);
+    expect(player.cylinderRotation).toBeCloseTo(sectorAngle * 2, 4);
 
     physics.snapRotate(player, -1);
-    expect(player.cylinderRotation).toBeCloseTo(Math.PI * 0.5, 4);
+    expect(player.cylinderRotation).toBeCloseTo(sectorAngle, 4);
   });
 
-  it('progressively scales speed and gravity as depth increases (Piano Tiles flow)', () => {
+  it('progressively scales speed and gravity as depth increases but strictly respects max cap', () => {
     const physics = new PhysicsEngine();
     const particles = new ParticleManager();
 
@@ -283,5 +299,10 @@ describe('Vortex Dive - Meteor Fireball & Snap Step Seams', () => {
     physics.update(0.1, deepPlayer, [], [], particles, () => {});
 
     expect(deepPlayer.vy).toBeGreaterThan(shallowPlayer.vy);
+
+    // Extreme deep test: must never exceed maxTerminalVelocity
+    const hyperPlayer = createMockPlayer({ currentDepth: 200, y: 100, vy: 2000 });
+    physics.update(0.1, hyperPlayer, [], [], particles, () => {});
+    expect(hyperPlayer.vy).toBeLessThanOrEqual(physics.maxTerminalVelocity);
   });
 });

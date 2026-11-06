@@ -10,15 +10,16 @@ export interface CollisionResult {
 }
 
 export interface GuideResult {
-  step: -1 | 0 | 1 | 2; // -1: Left, +1: Right, 0: Aligned, 2: Opposite
+  step: -1 | 0 | 1; // -1: Left (120°), +1: Right (120°), 0: Aligned
   label: string;
 }
 
 export class PhysicsEngine {
-  public readonly baseGravity = 1250;
-  public readonly bounceSpeed = 500;
-  public readonly baseTerminalVelocity = 1250;
-  public readonly meteorDiveSpeed = 1900;
+  public readonly baseGravity = 760;
+  public readonly bounceSpeed = 380;
+  public readonly baseTerminalVelocity = 560;
+  public readonly maxTerminalVelocity = 980;
+  public readonly meteorDiveSpeed = 1380;
   public readonly worldWidth = 480;
   public readonly contactAngle = Math.PI / 2; // Front of the ellipse (facing camera)
 
@@ -57,12 +58,15 @@ export class PhysicsEngine {
       }
     }
 
-    // Progressive speed scaling
-    const depthProgress = Math.min(player.currentDepth * 0.015, 0.65);
+    // Progressive speed scaling: starts gentle, accelerates with depth and gap streak, capped at maxTerminalVelocity
+    const depthProgress = Math.min(player.currentDepth * 0.008, 0.4);
     const effectiveGravity = this.baseGravity * (1 + depthProgress);
+
+    const speedBonusFromDepth = Math.min(player.currentDepth * 6, 260);
+    const speedBonusFromStreak = Math.min(player.consecutiveGaps * 18, 160);
     const effectiveTerminalVelocity = player.isMeteor
       ? this.meteorDiveSpeed
-      : this.baseTerminalVelocity + player.currentDepth * 15;
+      : Math.min(this.maxTerminalVelocity, this.baseTerminalVelocity + speedBonusFromDepth + speedBonusFromStreak);
 
     player.vy += effectiveGravity * dt;
     if (player.vy > effectiveTerminalVelocity) {
@@ -129,12 +133,16 @@ export class PhysicsEngine {
             // Hole color shift
             player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
 
-            // Rhythmic acceleration on chained drops
-            player.vy = Math.max(player.vy, 460 + player.consecutiveGaps * 90);
+            // Rhythmic acceleration on chained drops, capped so it never runs away
+            const targetPassSpeed = 300 + Math.min(player.consecutiveGaps, 8) * 35;
+            player.vy = Math.min(effectiveTerminalVelocity, Math.max(player.vy, targetPassSpeed));
 
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
             const passPoints = Math.round(25 * player.comboMultiplier);
             player.score += passPoints;
+
+            // Round Timer Bonus: +1.5s per gap passed
+            player.roundTimeRemaining = Math.min(player.roundTimeTotal, player.roundTimeRemaining + 1.5);
 
             // 3 consecutive gaps triggers Meteor mode
             if (player.consecutiveGaps >= 3 && !player.isMeteor) {
@@ -143,15 +151,16 @@ export class PhysicsEngine {
               player.meteorMaxTimer = 4.0;
               player.meteorSmashesRemaining = 4;
               player.vy = Math.max(player.vy, this.meteorDiveSpeed);
+              player.roundTimeRemaining = Math.min(player.roundTimeTotal, player.roundTimeRemaining + 2.5);
 
               sound.playMeteorIgnite();
               sound.startCatMusic();
               particles.spawnShockwave(player.x, ring.y, 100, '#ff3300');
-              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH!', '#ff3300', 30);
+              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH! +2.5s ⏱️', '#ff3300', 30);
             } else {
               sound.playPianoTileNote(player.consecutiveGaps);
               particles.spawnPassSparks(player.x, ring.y, ring.color);
-              particles.addFloatingText(player.x, ring.y - 25, `+${passPoints}`, '#00f0ff', 20);
+              particles.addFloatingText(player.x, ring.y - 25, `+${passPoints}  +1.5s ⏱️`, '#00f0ff', 20);
             }
 
             player.scaleX = 0.8;
@@ -194,37 +203,32 @@ export class PhysicsEngine {
     }
   }
 
-  // Option A Smart Directional Guidance (Tells the player exact rotation needed)
+  // Tri-Sector 120° Smart Directional Guidance (Left 120°, Right 120°, or Aligned 0°)
   public getGuideDirection(player: Player, ring: Ring): GuideResult {
+    const sectorAngle = (Math.PI * 2) / 3;
+
     // Current alignment (0 steps)
     let curAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation)) % (Math.PI * 2);
     if (curAngle < 0) curAngle += Math.PI * 2;
-    const curSeg = ring.segments[Math.floor(curAngle / (Math.PI * 0.5)) % 4];
+    const curSeg = ring.segments[Math.floor(curAngle / sectorAngle) % 3];
     if (curSeg?.type === 'GAP') {
       return { step: 0, label: 'DÜŞÜŞ HAZIR' };
     }
 
-    // Test Step Left (-1, A / Left Arrow)
-    let leftAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation - Math.PI * 0.5)) % (Math.PI * 2);
+    // Test Step Left (-120°, A / Left half / Left Arrow)
+    let leftAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation - sectorAngle)) % (Math.PI * 2);
     if (leftAngle < 0) leftAngle += Math.PI * 2;
-    const leftSeg = ring.segments[Math.floor(leftAngle / (Math.PI * 0.5)) % 4];
+    const leftSeg = ring.segments[Math.floor(leftAngle / sectorAngle) % 3];
     if (leftSeg?.type === 'GAP') {
       return { step: -1, label: 'SOLA DÖNDÜR' };
     }
 
-    // Test Step Right (+1, D / Right Arrow)
-    let rightAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation + Math.PI * 0.5)) % (Math.PI * 2);
-    if (rightAngle < 0) rightAngle += Math.PI * 2;
-    const rightSeg = ring.segments[Math.floor(rightAngle / (Math.PI * 0.5)) % 4];
-    if (rightSeg?.type === 'GAP') {
-      return { step: 1, label: 'SAĞA DÖNDÜR' };
-    }
-
-    return { step: 2, label: '2 ADIM ÇEVİR' };
+    // Otherwise, Step Right (+120°, D / Right half / Right Arrow)
+    return { step: 1, label: 'SAĞA DÖNDÜR' };
   }
 
   public snapRotate(player: Player, dir: number): void {
-    const step = Math.PI * 0.5;
+    const step = (Math.PI * 2) / 3;
     this.applyRotation(player, dir * step);
     sound.playSnapClick();
   }
@@ -235,7 +239,7 @@ export class PhysicsEngine {
     player.meteorTimer = 0;
     player.meteorSmashesRemaining = 0;
     sound.stopCatMusic();
-    player.vy = Math.min(player.vy, 450);
+    player.vy = Math.min(player.vy, 420);
   }
 
   public resolveRingCollision(player: Player, ring: Ring): CollisionResult {

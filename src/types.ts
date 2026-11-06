@@ -108,6 +108,8 @@ export interface Player {
   totalGems: number;
   comboMultiplier: number;
   perfectDropStreak: number;
+  roundTimeRemaining: number;
+  roundTimeTotal: number;
 
   // Fast fall state for juice/camera
   isFallingFast: boolean;

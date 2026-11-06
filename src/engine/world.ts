@@ -16,6 +16,8 @@ export class WorldManager {
   public highestGeneratedDepth = 0;
   private nextRingId = 1;
   private nextGemId = 1;
+  public lastGapSlot = -1;
+  public consecutiveSameGapSlotCount = 0;
 
   public readonly worldWidth = 480;
   public readonly ringSpacing = 150;
@@ -32,6 +34,8 @@ export class WorldManager {
     this.highestGeneratedDepth = -1;
     this.nextRingId = 1;
     this.nextGemId = 1;
+    this.lastGapSlot = -1;
+    this.consecutiveSameGapSlotCount = 0;
 
     // Generate initial 30 rings
     this.generateUpToDepth(30);
@@ -65,45 +69,49 @@ export class WorldManager {
     }
   }
 
-  // Option A: 4 Quadrants, Zero Red Hazards! Pure Flow & Rhythm.
+  // Tri-Sector (3 x 120°): Exactly 3 sectors, Zero Red Hazards, Max 2 consecutive identical gap slots
   public createRing(depth: number, y: number): Ring {
-    const quadrantCount = 4;
-    const quadrantAngle = (Math.PI * 2) / quadrantCount; // Exactly 90 degrees
-    const quadrantTypes: SegmentType[] = ['SAFE', 'SAFE', 'SAFE', 'SAFE'];
+    const sectorCount = 3;
+    const sectorAngle = (Math.PI * 2) / sectorCount; // Exactly 120 degrees (2*PI/3)
+    const sectorTypes: SegmentType[] = ['SAFE', 'SAFE', 'SAFE'];
 
     if (depth === 0) {
-      // Ring 0: 3 GAPs (270° wide opening)
-      quadrantTypes[0] = 'GAP';
-      quadrantTypes[1] = 'GAP';
-      quadrantTypes[2] = 'GAP';
-    } else if (depth <= 5) {
-      // Early rings (1-5): 2 GAPs (180° opening)
-      const gapIdx = Math.floor(Math.random() * quadrantCount);
-      quadrantTypes[gapIdx] = 'GAP';
-      quadrantTypes[(gapIdx + 1) % quadrantCount] = 'GAP';
+      // Ring 0: 2 GAPs (240° wide opening for smooth drop-in)
+      sectorTypes[0] = 'GAP';
+      sectorTypes[1] = 'GAP';
+      this.lastGapSlot = 0;
+      this.consecutiveSameGapSlotCount = 1;
     } else {
-      // Later rings: 1 GAP (sometimes 2 for bonus flow)
-      const gapIdx = Math.floor(Math.random() * quadrantCount);
-      quadrantTypes[gapIdx] = 'GAP';
-      if (Math.random() < 0.25) {
-        quadrantTypes[(gapIdx + 1) % quadrantCount] = 'GAP';
+      // Anti-Freefall Constraint: Max 2 consecutive rings can have the gap at the exact same slot!
+      let chosenSlot: number;
+      if (this.consecutiveSameGapSlotCount >= 2) {
+        // Guaranteed shift: player must turn!
+        const availableSlots = [0, 1, 2].filter((s) => s !== this.lastGapSlot);
+        chosenSlot = availableSlots[Math.floor(Math.random() * availableSlots.length)];
+        this.lastGapSlot = chosenSlot;
+        this.consecutiveSameGapSlotCount = 1;
+      } else {
+        chosenSlot = Math.floor(Math.random() * 3);
+        if (chosenSlot === this.lastGapSlot) {
+          this.consecutiveSameGapSlotCount++;
+        } else {
+          this.lastGapSlot = chosenSlot;
+          this.consecutiveSameGapSlotCount = 1;
+        }
       }
+      sectorTypes[chosenSlot] = 'GAP';
     }
 
     const segments: RingSegment[] = [];
-    for (let i = 0; i < quadrantCount; i++) {
+    for (let i = 0; i < sectorCount; i++) {
       segments.push({
-        startAngle: i * quadrantAngle,
-        endAngle: (i + 1) * quadrantAngle,
-        type: quadrantTypes[i]
+        startAngle: i * sectorAngle,
+        endAngle: (i + 1) * sectorAngle,
+        type: sectorTypes[i]
       });
     }
 
     const theme = COLOR_THEMES[depth % COLOR_THEMES.length];
-
-    // Align base rotation to clean 90° quadrant multiples
-    const baseQuadrant = Math.floor(Math.random() * 4);
-    const rotation = baseQuadrant * quadrantAngle;
 
     return {
       id: this.nextRingId++,
@@ -111,7 +119,7 @@ export class WorldManager {
       y,
       radius: this.ringRadius,
       thickness: 24,
-      rotation,
+      rotation: 0,
       rotSpeed: 0,
       color: theme.color,
       glow: theme.glow,

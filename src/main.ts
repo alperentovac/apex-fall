@@ -17,7 +17,7 @@ class Game {
   private player: Player;
   private lastTime = 0;
 
-  // Discrete 90-degree step rotation state
+  // Discrete 120-degree step rotation state
   private targetRotation = 0;
   private pointerStartX = 0;
   private pointerStartTime = 0;
@@ -34,6 +34,7 @@ class Game {
   private hudBest: HTMLElement;
   private hudMultiplier: HTMLElement;
   private hudGems: HTMLElement;
+  private hudTimer: HTMLElement;
   private btnRestartTop: HTMLElement;
   private btnTilt: HTMLElement;
   private meteorLabel: HTMLElement;
@@ -55,6 +56,7 @@ class Game {
     this.hudBest = document.getElementById('hud-best')!;
     this.hudMultiplier = document.getElementById('hud-multiplier')!;
     this.hudGems = document.getElementById('hud-gems')!;
+    this.hudTimer = document.getElementById('hud-timer')!;
     this.btnRestartTop = document.getElementById('btn-restart-top')!;
     this.btnTilt = document.getElementById('btn-tilt')!;
     this.meteorLabel = document.getElementById('meteor-label')!;
@@ -68,7 +70,7 @@ class Game {
     this.player = {
       x: this.physics.worldWidth / 2,
       y: 90,
-      vy: 260,
+      vy: 190,
       radius: 12,
       consecutiveGaps: 0,
       isMeteor: false,
@@ -87,6 +89,8 @@ class Game {
       totalGems: 0,
       comboMultiplier: 1.0,
       perfectDropStreak: 0,
+      roundTimeRemaining: 25.0,
+      roundTimeTotal: 30.0,
       isFallingFast: false,
       trailHistory: []
     };
@@ -114,12 +118,20 @@ class Game {
     resize();
   }
 
-  // Option 2: 90-degree rhythmic step rotation
+  // Tri-Sector: 120-degree rhythmic step rotation
   private snapStep(direction: number): void {
     if (this.state !== 'PLAYING') return;
-    this.targetRotation += direction * (Math.PI * 0.5);
+    this.hideTapHints();
+    this.targetRotation += direction * ((Math.PI * 2) / 3);
     sound.playSnapClick();
     this.juice.addShake(2, 0.08);
+  }
+
+  private hideTapHints(): void {
+    const hints = document.getElementById('tap-hints');
+    if (hints && !hints.classList.contains('hidden')) {
+      hints.classList.add('hidden');
+    }
   }
 
   private setupInputs(): void {
@@ -265,12 +277,12 @@ class Game {
     this.screenMsg.innerHTML = `
       <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
         <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RİTİM & AKIŞ MODU</p>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">120° TRİ-SEKTÖR & RİTİM AKIŞI</p>
         <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.8;">
-          👈 <b>Sola Dokun / A:</b> Sola Çevir<br>
-          👉 <b>Sağa Dokun / D:</b> Sağa Çevir<br>
-          ✨ <b>Yeşil Oku Takip Et:</b> Delikleri Ritimle Geç, Akorları Yakala!<br>
-          🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush!
+          👈 <b>Sola Dokun / A:</b> Sola 120° Çevir<br>
+          👉 <b>Sağa Dokun / D:</b> Sağa 120° Çevir<br>
+          ⏱️ <b>25s Süre Sınırı:</b> Her delik geçişinde +1.5s kazan!<br>
+          🐱 <b>3 Seri Delik:</b> Kedi Müziği ile Meteor Crush (+2.5s)!
         </div>
         <button class="btn-action pulse" id="btn-start">BAŞLA</button>
       </div>
@@ -297,6 +309,24 @@ class Game {
     });
   }
 
+  private showTimeoutScreen(): void {
+    this.juice.addShake(16, 0.35);
+    sound.stopCatMusic();
+    this.screenMsg.innerHTML = `
+      <div style="background: rgba(22, 6, 32, 0.96); border: 2px solid #ffe600; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(255, 230, 0, 0.5);">
+        <h2 style="font-family: 'Orbitron'; font-size: 26px; color: #ffe600; text-shadow: 0 0 14px #ffe600; margin-bottom: 4px;">⏱️ SÜRE DOLDU!</h2>
+        <p style="color: #00f0ff; font-weight: 800; font-size: 24px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
+        <p style="color: #39ff14; font-weight: 700; font-size: 16px; margin-bottom: 4px;">SKOR: ${this.player.score}</p>
+        <p style="color: #b6ccf0; font-size: 13px; margin-bottom: 14px;">GEÇİLEN DELİK: ${this.player.perfectDropStreak}</p>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ffe600, #ff007f); color: #000; font-weight: 900;">TEKRAR DALIŞ YAP [R]</button>
+      </div>
+    `;
+
+    document.getElementById('btn-restart')?.addEventListener('click', () => {
+      this.startGame();
+    });
+  }
+
   private startGame(): void {
     sound.init();
     this.state = 'PLAYING';
@@ -307,7 +337,9 @@ class Game {
 
     this.targetRotation = 0;
     this.player.y = 90;
-    this.player.vy = 260;
+    this.player.vy = 190;
+    this.player.roundTimeRemaining = 25.0;
+    this.player.roundTimeTotal = 30.0;
     this.player.consecutiveGaps = 0;
     this.player.isMeteor = false;
     this.player.meteorTimer = 0;
@@ -318,6 +350,7 @@ class Game {
     this.player.score = 0;
     this.player.totalGems = 0;
     this.player.comboMultiplier = 1.0;
+    this.player.perfectDropStreak = 0;
     this.player.colorThemeIndex = 0;
     this.player.isFallingFast = false;
     this.player.trailHistory = [];
@@ -329,11 +362,19 @@ class Game {
     }
     this.guidePulseTimer += dt * 8;
 
-    // Smooth snappy 90° interpolation
+    // Smooth snappy 120° interpolation
     const rotDiff = this.targetRotation - this.player.cylinderRotation;
     this.player.cylinderRotation += rotDiff * Math.min(1, dt * 26);
 
     if (this.state === 'PLAYING') {
+      this.player.roundTimeRemaining -= dt;
+      if (this.player.roundTimeRemaining <= 0) {
+        this.player.roundTimeRemaining = 0;
+        this.state = 'CRASHED';
+        this.showTimeoutScreen();
+        return;
+      }
+
       this.world.update(dt, this.juice.cameraY);
 
       this.physics.update(
@@ -371,6 +412,12 @@ class Game {
     this.hudBest.textContent = `BEST ${this.player.maxDepthAchieved}M`;
     this.hudMultiplier.textContent = `x${this.player.comboMultiplier.toFixed(1)}`;
     this.hudGems.textContent = `💎 ${this.player.score}`;
+    this.hudTimer.textContent = `⏱️ ${Math.max(0, this.player.roundTimeRemaining).toFixed(1)}s`;
+    if (this.player.roundTimeRemaining <= 5.0) {
+      this.hudTimer.classList.add('urgent');
+    } else {
+      this.hudTimer.classList.remove('urgent');
+    }
 
     // Update Meteor indicators
     const gaps = this.player.consecutiveGaps;
@@ -503,12 +550,6 @@ class Game {
       this.ctx.font = '800 10px "Orbitron", monospace';
       this.ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
       this.ctx.fillText('SAĞ', arrowX, py + 18);
-    } else if (guide.step === 2) {
-      // 4. OPPOSITE (2 steps)
-      this.ctx.font = '900 14px "Orbitron", monospace';
-      this.ctx.fillStyle = 'rgba(255, 170, 0, 0.85)';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText('◀ 2x ▶', px, py + this.player.radius + 18);
     }
 
     this.ctx.restore();
