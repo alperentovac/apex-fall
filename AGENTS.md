@@ -4,7 +4,7 @@ High-dopamine vertical climbing rage-game with exponential multipliers, procedur
 
 ## Commands
 - Check (before handoff): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1` -> `OK` or `FAIL: <step>`; details in `.check.log`.
-- Run Dev Server: `npm run dev`
+- Run Dev Server: `npm run dev` (Runs on http://localhost:5180)
 - Test: `npm test`
 - Build: `npm run build`
 - Typecheck: `npm run typecheck`
