@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>VORTEX DIVE - Infinite Neon Freefall</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+  <title>APEX FALL</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
@@ -14,12 +14,13 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
+      touch-action: none;
     }
     body, html {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #04020a;
+      background: #020108;
       font-family: 'Rajdhani', sans-serif;
       display: flex;
       justify-content: center;
@@ -28,14 +29,23 @@
     }
     #game-container {
       position: relative;
-      width: 100vw;
-      height: 100vh;
-      max-width: 540px;
+      width: 100%;
+      height: 100%;
+      max-width: 500px;
       max-height: 960px;
-      aspect-ratio: 9/16;
-      background: radial-gradient(circle at 50% 40%, #15092a 0%, #05020c 100%);
-      box-shadow: 0 0 50px rgba(0, 240, 255, 0.25), 0 0 25px rgba(255, 0, 128, 0.2);
+      background: #05020c;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 500px) {
+      #game-container {
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+      }
     }
     canvas {
       display: block;
@@ -56,7 +66,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px;
+      padding: 14px 16px;
     }
     .hud-top {
       display: flex;
@@ -64,14 +74,23 @@
       align-items: flex-start;
     }
     .hud-stat-left {
-      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-title-tag {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 900;
+      color: #ff007f;
+      letter-spacing: 2px;
+      line-height: 1;
+      margin-bottom: 2px;
     }
     .hud-depth {
       font-family: 'Orbitron', monospace;
-      font-size: 32px;
+      font-size: 30px;
       font-weight: 900;
       color: #00f0ff;
-      letter-spacing: -0.5px;
       line-height: 1;
     }
     .hud-best {
@@ -79,17 +98,15 @@
       font-size: 11px;
       font-weight: 700;
       color: #ffaa00;
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
       margin-top: 3px;
-      opacity: 0.85;
     }
     .hud-stat-right {
       text-align: right;
-      text-shadow: 0 0 14px rgba(255, 0, 128, 0.8);
     }
     .hud-multiplier {
       font-family: 'Orbitron', monospace;
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 900;
       color: #ff007f;
       line-height: 1;
@@ -98,12 +115,10 @@
       font-family: 'Orbitron', monospace;
       font-size: 13px;
       font-weight: 800;
-      color: #00ffcc;
+      color: #ffe600;
       margin-top: 3px;
-      text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
     }
 
-    /* Controls & Gyro Tilt Toggle */
     .hud-bottom {
       display: flex;
       justify-content: space-between;
@@ -111,7 +126,7 @@
       pointer-events: auto;
     }
     .btn-tilt {
-      background: rgba(15, 10, 32, 0.7);
+      background: rgba(14, 8, 30, 0.75);
       border: 1.5px solid rgba(0, 240, 255, 0.4);
       color: #00f0ff;
       font-family: 'Orbitron', monospace;
@@ -120,18 +135,33 @@
       padding: 8px 14px;
       border-radius: 20px;
       cursor: pointer;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
-      transition: all 0.2s ease;
+      backdrop-filter: blur(6px);
+      transition: all 0.15s ease;
     }
     .btn-tilt.active {
-      background: linear-gradient(135deg, #00f0ff, #0088ff);
-      color: #050512;
+      background: linear-gradient(135deg, #00f0ff, #0077ff);
+      color: #04020a;
       border-color: #ffffff;
-      box-shadow: 0 0 18px rgba(0, 240, 255, 0.7);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.6);
     }
 
-    /* Meteor Dive Status Bar */
+    /* Plunge Button for Mobile */
+    .btn-plunge {
+      background: linear-gradient(135deg, #ff007f 0%, #ff5500 100%);
+      border: 1.5px solid #ffffff;
+      color: #ffffff;
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(255, 0, 127, 0.5);
+    }
+    .btn-plunge:active {
+      transform: scale(0.95);
+    }
+
     .meteor-meter-container {
       display: flex;
       flex-direction: column;
@@ -140,39 +170,37 @@
     }
     .meteor-label {
       font-family: 'Orbitron', monospace;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       color: #ffaa00;
-      text-shadow: 0 0 8px rgba(255, 170, 0, 0.8);
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
     }
     .meteor-dots {
       display: flex;
-      gap: 6px;
+      gap: 5px;
     }
     .dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
-      background: rgba(40, 20, 60, 0.6);
-      border: 1.5px solid rgba(255, 170, 0, 0.4);
-      transition: all 0.15s ease;
+      background: rgba(30, 15, 45, 0.7);
+      border: 1.5px solid rgba(255, 170, 0, 0.35);
+      transition: all 0.12s ease;
     }
     .dot.active {
       background: #ff5500;
       border-color: #ffff00;
-      box-shadow: 0 0 10px #ff3300;
       transform: scale(1.15);
     }
     .dot.fire {
       background: #ff0055;
       border-color: #ffffff;
-      box-shadow: 0 0 16px #ff0055, 0 0 25px #ffaa00;
-      animation: firePulse 0.5s infinite alternate;
+      box-shadow: 0 0 12px #ff0055;
+      animation: firePulse 0.45s infinite alternate;
     }
     @keyframes firePulse {
-      0% { transform: scale(1.1); box-shadow: 0 0 12px #ff0055; }
-      100% { transform: scale(1.35); box-shadow: 0 0 22px #ffaa00; }
+      0% { transform: scale(1.1); }
+      100% { transform: scale(1.3); }
     }
 
     #screen-msg {
@@ -190,18 +218,18 @@
       border: none;
       color: #fff;
       font-family: 'Orbitron', sans-serif;
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 900;
-      padding: 15px 32px;
+      padding: 14px 30px;
       border-radius: 30px;
       cursor: pointer;
-      box-shadow: 0 0 28px rgba(0, 240, 255, 0.65);
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.5);
       transition: transform 0.15s;
-      letter-spacing: 1.5px;
-      margin-top: 16px;
+      letter-spacing: 1px;
+      margin-top: 15px;
     }
     .btn-action:hover {
-      transform: scale(1.05);
+      transform: scale(1.04);
     }
     .btn-action:active {
       transform: scale(0.96);
@@ -214,6 +242,7 @@
     <div id="ui-overlay">
       <div class="hud-top">
         <div class="hud-stat-left">
+          <div class="hud-title-tag">APEX FALL</div>
           <div class="hud-depth" id="hud-depth">0M</div>
           <div class="hud-best" id="hud-best">BEST 0M</div>
         </div>
@@ -224,9 +253,10 @@
       </div>
 
       <div class="hud-bottom">
-        <button id="btn-tilt" class="btn-tilt" title="Cihaz Eğme (Jiroskop) Kontrolü">📱 TİLT: KAPALI</button>
+        <button id="btn-tilt" class="btn-tilt" title="Ters Jiroskop">📱 TİLT: KAPALI</button>
+        <button id="btn-plunge" class="btn-plunge" title="Hızlı Dalış [Space/Aşağı]">⚡ HIZLI DALIŞ</button>
         <div class="meteor-meter-container">
-          <div class="meteor-label" id="meteor-label">METEOR DIVE</div>
+          <div class="meteor-label" id="meteor-label">METEOR STREAK</div>
           <div class="meteor-dots">
             <div class="dot" id="dot-1"></div>
             <div class="dot" id="dot-2"></div>

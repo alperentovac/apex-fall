@@ -22,6 +22,7 @@ export interface Ring {
   segments: RingSegment[];
   passed: boolean;
   isBroken: boolean;
+  colorIndex: number;
 }
 
 export interface Gem {
@@ -81,10 +82,16 @@ export interface Player {
   vy: number;
   radius: number;
 
-  // Meteor Fireball Dive Mode
+  // Meteor Fireball Dive Mode (Finite duration & smashes)
   consecutiveGaps: number;
   isMeteor: boolean;
   meteorTimer: number;
+  meteorMaxTimer: number;
+  meteorSmashesRemaining: number;
+
+  // Snappy Plunge / Fast Drop mechanic (Piano Tiles skill flow)
+  isPlunging: boolean;
+  plungeBoost: number;
 
   // Ring/Cylinder rotation steering
   cylinderRotation: number;
@@ -95,12 +102,16 @@ export interface Player {
   scaleX: number;
   scaleY: number;
 
+  // Color shifting per hole
+  colorThemeIndex: number;
+
   // Progression & Stats
   currentDepth: number;
   maxDepthAchieved: number;
   score: number;
   totalGems: number;
   comboMultiplier: number;
+  perfectDropStreak: number;
 
   // Fast fall state for juice/camera
   isFallingFast: boolean;

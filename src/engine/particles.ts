@@ -5,6 +5,7 @@ export class ParticleManager {
   private shockwaves: Shockwave[] = [];
   private texts: FloatingText[] = [];
   private nextTextId = 1;
+  private readonly maxParticles = 60;
 
   public update(dt: number): void {
     // Update particles
@@ -22,7 +23,6 @@ export class ParticleManager {
       if (p.vRot) {
         p.rotation = (p.rotation || 0) + p.vRot * dt;
       }
-      // Gravity for fragments and sparks
       if (p.shape === 'spark' || p.shape === 'fragment') {
         p.vy += 600 * dt;
       }
@@ -49,63 +49,26 @@ export class ParticleManager {
         continue;
       }
       t.y += t.vy * dt;
-      t.scale = 1 + 0.3 * Math.sin((1 - t.life / t.maxLife) * Math.PI);
+      t.scale = 1 + 0.25 * Math.sin((1 - t.life / t.maxLife) * Math.PI);
     }
   }
 
-  public spawnSparks(x: number, y: number, color: string, count = 12, speed = 250): void {
+  private addParticle(p: Particle): void {
+    if (this.particles.length < this.maxParticles) {
+      this.particles.push(p);
+    }
+  }
+
+  public spawnSparks(x: number, y: number, color: string, count = 10, speed = 240): void {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const spd = (Math.random() * 0.7 + 0.3) * speed;
-      const maxLife = 0.3 + Math.random() * 0.4;
-      this.particles.push({
+      const maxLife = 0.25 + Math.random() * 0.3;
+      this.addParticle({
         x,
         y,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
-        life: maxLife,
-        maxLife,
-        size: 3 + Math.random() * 4,
-        color,
-        alpha: 1,
-        shape: 'spark'
-      });
-    }
-  }
-
-  public spawnPassSparks(x: number, y: number, color = '#00f0ff'): void {
-    const count = 14;
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.random() - 0.5) * Math.PI * 0.8 - Math.PI / 2; // Upward spray
-      const spd = 120 + Math.random() * 280;
-      const maxLife = 0.25 + Math.random() * 0.25;
-      this.particles.push({
-        x: x + (Math.random() - 0.5) * 40,
-        y,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
-        life: maxLife,
-        maxLife,
-        size: 2.5 + Math.random() * 3.5,
-        color,
-        alpha: 1,
-        shape: 'spark'
-      });
-    }
-    this.spawnShockwave(x, y, 40, color);
-  }
-
-  public spawnBounce(x: number, y: number, color = '#00f0ff'): void {
-    const count = 16;
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.random() - 0.5) * Math.PI; // Upwards
-      const spd = 100 + Math.random() * 220;
-      const maxLife = 0.2 + Math.random() * 0.25;
-      this.particles.push({
-        x: x + (Math.random() - 0.5) * 30,
-        y,
-        vx: Math.cos(angle) * spd,
-        vy: -Math.abs(Math.sin(angle) * spd),
         life: maxLife,
         maxLife,
         size: 3 + Math.random() * 3,
@@ -116,46 +79,42 @@ export class ParticleManager {
     }
   }
 
-  public spawnRingShatter(x: number, y: number, color = '#ff0055'): void {
-    const count = 35;
+  public spawnPassSparks(x: number, y: number, color = '#00f0ff'): void {
+    const count = 10;
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const spd = 180 + Math.random() * 450;
-      const maxLife = 0.4 + Math.random() * 0.45;
-      this.particles.push({
-        x: x + (Math.random() - 0.5) * 80,
-        y: y + (Math.random() - 0.5) * 20,
+      const angle = (Math.random() - 0.5) * Math.PI * 0.8 - Math.PI / 2;
+      const spd = 120 + Math.random() * 240;
+      const maxLife = 0.2 + Math.random() * 0.2;
+      this.addParticle({
+        x: x + (Math.random() - 0.5) * 35,
+        y,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
         life: maxLife,
         maxLife,
-        size: 5 + Math.random() * 7,
-        color: Math.random() > 0.4 ? color : '#ffaa00',
+        size: 2.5 + Math.random() * 3,
+        color,
         alpha: 1,
-        shape: 'fragment',
-        rotation: Math.random() * Math.PI * 2,
-        vRot: (Math.random() - 0.5) * 16
+        shape: 'spark'
       });
     }
+    this.spawnShockwave(x, y, 35, color);
   }
 
-  public spawnMeteorFlame(x: number, y: number): void {
-    const count = 6;
+  public spawnBounce(x: number, y: number, color = '#00f0ff'): void {
+    const count = 12;
     for (let i = 0; i < count; i++) {
-      const spread = (Math.random() - 0.5) * 24;
-      const spd = 200 + Math.random() * 350;
-      const maxLife = 0.18 + Math.random() * 0.18;
-      const colors = ['#ff2200', '#ff6600', '#ffaa00', '#ffffff'];
-      const color = colors[Math.floor(Math.random() * colors.length)];
-
-      this.particles.push({
-        x: x + spread,
-        y: y - 8,
-        vx: (Math.random() - 0.5) * 70,
-        vy: -spd, // Flaring upwards as player plunges down
+      const angle = (Math.random() - 0.5) * Math.PI;
+      const spd = 100 + Math.random() * 200;
+      const maxLife = 0.2 + Math.random() * 0.2;
+      this.addParticle({
+        x: x + (Math.random() - 0.5) * 25,
+        y,
+        vx: Math.cos(angle) * spd,
+        vy: -Math.abs(Math.sin(angle) * spd),
         life: maxLife,
         maxLife,
-        size: 4 + Math.random() * 6,
+        size: 3 + Math.random() * 2.5,
         color,
         alpha: 1,
         shape: 'spark'
@@ -163,63 +122,110 @@ export class ParticleManager {
     }
   }
 
-  public spawnShockwave(x: number, y: number, maxRadius = 45, color = '#00f0ff'): void {
+  public spawnRingShatter(x: number, y: number, color = '#ff003b'): void {
+    const count = 22;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = 180 + Math.random() * 380;
+      const maxLife = 0.3 + Math.random() * 0.35;
+      this.addParticle({
+        x: x + (Math.random() - 0.5) * 60,
+        y: y + (Math.random() - 0.5) * 15,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: maxLife,
+        maxLife,
+        size: 4 + Math.random() * 5,
+        color: Math.random() > 0.4 ? color : '#ffea00',
+        alpha: 1,
+        shape: 'fragment',
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 14
+      });
+    }
+  }
+
+  public spawnMeteorFlame(x: number, y: number): void {
+    const count = 4;
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 20;
+      const spd = 200 + Math.random() * 300;
+      const maxLife = 0.15 + Math.random() * 0.15;
+      const colors = ['#ff2200', '#ff7700', '#ffcc00', '#ffffff'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      this.addParticle({
+        x: x + spread,
+        y: y - 6,
+        vx: (Math.random() - 0.5) * 60,
+        vy: -spd,
+        life: maxLife,
+        maxLife,
+        size: 3.5 + Math.random() * 4,
+        color,
+        alpha: 1,
+        shape: 'spark'
+      });
+    }
+  }
+
+  public spawnShockwave(x: number, y: number, maxRadius = 40, color = '#00f0ff'): void {
     this.shockwaves.push({
       x,
       y,
       radius: 4,
       maxRadius,
-      life: 0.28,
-      maxLife: 0.28,
+      life: 0.24,
+      maxLife: 0.24,
       color,
-      lineWidth: 3
+      lineWidth: 2.5
     });
   }
 
   public spawnGemExplosion(x: number, y: number, color: string): void {
-    const count = 22;
+    const count = 16;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-      const spd = 150 + Math.random() * 320;
-      const maxLife = 0.4 + Math.random() * 0.35;
-      this.particles.push({
+      const angle = (i / count) * Math.PI * 2;
+      const spd = 140 + Math.random() * 260;
+      const maxLife = 0.35 + Math.random() * 0.25;
+      this.addParticle({
         x,
         y,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
         life: maxLife,
         maxLife,
-        size: 3.5 + Math.random() * 4,
+        size: 3 + Math.random() * 3,
         color: Math.random() > 0.4 ? color : '#ffea00',
         alpha: 1,
         shape: 'square',
         rotation: Math.random() * Math.PI * 2,
-        vRot: (Math.random() - 0.5) * 15
+        vRot: (Math.random() - 0.5) * 12
       });
     }
-    this.spawnShockwave(x, y, 60, color);
+    this.spawnShockwave(x, y, 50, color);
   }
 
   public spawnCrash(x: number, y: number): void {
-    const count = 45;
+    const count = 30;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const spd = 200 + Math.random() * 500;
-      const maxLife = 0.5 + Math.random() * 0.5;
-      this.particles.push({
+      const spd = 180 + Math.random() * 420;
+      const maxLife = 0.4 + Math.random() * 0.4;
+      this.addParticle({
         x,
         y,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
         life: maxLife,
         maxLife,
-        size: 4 + Math.random() * 6,
-        color: Math.random() > 0.5 ? '#ff0055' : '#ffaa00',
+        size: 3.5 + Math.random() * 5,
+        color: Math.random() > 0.5 ? '#ff003b' : '#ffaa00',
         alpha: 1,
         shape: 'spark'
       });
     }
-    this.spawnShockwave(x, y, 120, '#ff0055');
+    this.spawnShockwave(x, y, 90, '#ff003b');
   }
 
   public addFloatingText(
@@ -227,7 +233,7 @@ export class ParticleManager {
     y: number,
     text: string,
     color = '#00f0ff',
-    size = 20
+    size = 18
   ): void {
     this.texts.push({
       id: this.nextTextId++,
@@ -236,13 +242,14 @@ export class ParticleManager {
       text,
       color,
       size,
-      life: 0.85,
-      maxLife: 0.85,
-      vy: -75,
-      scale: 1.4
+      life: 0.75,
+      maxLife: 0.75,
+      vy: -70,
+      scale: 1.3
     });
   }
 
+  // Highly optimized render loop without expensive shadowBlur
   public draw(ctx: CanvasRenderingContext2D): void {
     // Shockwaves
     for (const sw of this.shockwaves) {
@@ -253,8 +260,6 @@ export class ParticleManager {
       ctx.strokeStyle = sw.color;
       ctx.globalAlpha = alpha;
       ctx.lineWidth = sw.lineWidth * alpha;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = sw.color;
       ctx.stroke();
       ctx.restore();
     }
@@ -264,8 +269,6 @@ export class ParticleManager {
       ctx.save();
       ctx.globalAlpha = p.alpha;
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = p.color;
 
       if (p.shape === 'spark' || p.shape === 'circle') {
         ctx.beginPath();
@@ -287,8 +290,6 @@ export class ParticleManager {
       ctx.font = `900 ${t.size}px 'Orbitron', monospace`;
       ctx.textAlign = 'center';
       ctx.fillStyle = t.color;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = t.color;
       ctx.translate(t.x, t.y);
       ctx.scale(t.scale, t.scale);
       ctx.fillText(t.text, 0, 0);

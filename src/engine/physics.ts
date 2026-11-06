@@ -10,10 +10,11 @@ export interface CollisionResult {
 }
 
 export class PhysicsEngine {
-  public readonly gravity = 1850;
-  public readonly bounceSpeed = 620;
-  public readonly terminalVelocity = 2400;
-  public readonly meteorDiveSpeed = 2300;
+  public readonly gravity = 2200; // Snappy fast gravity
+  public readonly bounceSpeed = 640;
+  public readonly terminalVelocity = 2600;
+  public readonly meteorDiveSpeed = 2400;
+  public readonly plungeSpeed = 1600;
   public readonly worldWidth = 480;
   public readonly contactAngle = Math.PI / 2; // Front of the ellipse (facing camera)
 
@@ -28,9 +29,9 @@ export class PhysicsEngine {
     onSmashRing?: (ring: Ring) => void,
     onBounce?: (ring: Ring) => void
   ): void {
-    // Decay squash and stretch juice
-    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 20);
-    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 20);
+    // Decay squash and stretch
+    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 24);
+    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 24);
 
     // Aerodynamic diving trails
     player.trailHistory.unshift({
@@ -40,11 +41,19 @@ export class PhysicsEngine {
       scale: player.scaleX,
       isMeteor: player.isMeteor
     });
-    if (player.trailHistory.length > 12) {
+    if (player.trailHistory.length > 10) {
       player.trailHistory.pop();
     }
     for (const t of player.trailHistory) {
       t.alpha -= dt * (player.isMeteor ? 3.0 : 4.5);
+    }
+
+    // Meteor mode timer countdown (Fix: does NOT last forever!)
+    if (player.isMeteor) {
+      player.meteorTimer -= dt;
+      if (player.meteorTimer <= 0) {
+        this.deactivateMeteor(player);
+      }
     }
 
     // Apply gravity
@@ -62,13 +71,14 @@ export class PhysicsEngine {
       for (const ring of rings) {
         if (ring.isBroken) continue;
 
-        // Check if player trajectory intersects ring level
+        // Check if player passes ring level
         if (prevY <= ring.y && newY >= ring.y) {
           const result = this.resolveRingCollision(player, ring);
 
           if (result.action === 'CRASH') {
             player.y = ring.y;
             player.vy = 0;
+            this.deactivateMeteor(player);
             sound.playCrash();
             particles.spawnCrash(player.x, player.y);
             onCrash();
@@ -83,51 +93,68 @@ export class PhysicsEngine {
               player.maxDepthAchieved = player.currentDepth;
             }
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.5) * 10) / 10);
-            const smashPoints = Math.round(80 * player.comboMultiplier);
+            const smashPoints = Math.round(100 * player.comboMultiplier);
             player.score += smashPoints;
 
             sound.playShatter();
-            particles.spawnRingShatter(player.x, ring.y, '#ff0055');
-            particles.spawnShockwave(player.x, ring.y, 90, '#ffaa00');
+            particles.spawnRingShatter(player.x, ring.y, '#ff003b');
+            particles.spawnShockwave(player.x, ring.y, 80, '#ffaa00');
             particles.addFloatingText(player.x, ring.y - 30, `SMASH +${smashPoints}!`, '#ffaa00', 26);
 
+            // Deplete remaining smashes in Meteor mode
+            player.meteorSmashesRemaining--;
+            if (player.meteorSmashesRemaining <= 0) {
+              this.deactivateMeteor(player);
+            }
+
             onSmashRing?.(ring);
-            // Smashed through, continues downward
           } else if (result.action === 'BOUNCE') {
             player.y = ring.y - 2;
             player.vy = -this.bounceSpeed;
             player.consecutiveGaps = 0;
-            player.isMeteor = false;
+            player.isPlunging = false;
+            this.deactivateMeteor(player);
+
             player.scaleX = 1.35;
             player.scaleY = 0.65;
 
             sound.playBounce();
             particles.spawnBounce(player.x, ring.y, ring.color);
-            particles.spawnShockwave(player.x, ring.y, 45, ring.color);
+            particles.spawnShockwave(player.x, ring.y, 40, ring.color);
 
             onBounce?.(ring);
             break;
           } else if (result.action === 'PASS_GAP') {
             ring.passed = true;
             player.consecutiveGaps++;
+            player.perfectDropStreak++;
             player.currentDepth = ring.depth;
             if (player.currentDepth > player.maxDepthAchieved) {
               player.maxDepthAchieved = player.currentDepth;
             }
 
+            // Every hole changes the color theme!
+            player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
+
             player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
-            const passPoints = Math.round(20 * player.comboMultiplier);
+            const passPoints = Math.round(25 * player.comboMultiplier);
             player.score += passPoints;
 
-            // Trigger Meteor Fireball Dive at 3+ consecutive gaps
+            // Trigger Meteor Fireball Dive at 3+ consecutive gaps with finite duration & smashes
             if (player.consecutiveGaps >= 3 && !player.isMeteor) {
               player.isMeteor = true;
+              player.meteorTimer = 4.0;
+              player.meteorMaxTimer = 4.0;
+              player.meteorSmashesRemaining = 4; // Max 4 smashes
               player.vy = Math.max(player.vy, this.meteorDiveSpeed);
+
               sound.playMeteorIgnite();
-              particles.spawnShockwave(player.x, ring.y, 110, '#ff5500');
-              particles.addFloatingText(player.x, ring.y - 45, 'METEOR DIVE!', '#ff3300', 30);
+              sound.startCatMusic();
+              particles.spawnShockwave(player.x, ring.y, 110, '#ff3300');
+              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH!', '#ff3300', 32);
             } else {
-              sound.playPassGap(player.consecutiveGaps);
+              // Piano Tiles style rapid chime
+              sound.playPianoTileNote(player.consecutiveGaps);
               particles.spawnPassSparks(player.x, ring.y, ring.color);
               particles.addFloatingText(player.x, ring.y - 25, `+${passPoints}`, '#00f0ff', 20);
             }
@@ -143,7 +170,7 @@ export class PhysicsEngine {
 
     // Apply movement
     player.y = newY;
-    player.isFallingFast = player.vy > 900 || player.isMeteor;
+    player.isFallingFast = player.vy > 950 || player.isMeteor;
 
     // Meteor flame particle burst
     if (player.isMeteor) {
@@ -159,11 +186,10 @@ export class PhysicsEngine {
       const totalAngle = (g.angle + ringRot + player.cylinderRotation) % (Math.PI * 2);
       const normalizedAngle = totalAngle < 0 ? totalAngle + Math.PI * 2 : totalAngle;
 
-      // Angular distance to player contact point
       let diff = Math.abs(normalizedAngle - this.contactAngle);
       if (diff > Math.PI) diff = Math.PI * 2 - diff;
 
-      if (diff < 0.32 && Math.abs(player.y - g.y) < 32) {
+      if (diff < 0.35 && Math.abs(player.y - g.y) < 36) {
         g.collected = true;
         player.totalGems++;
         const awarded = Math.round(g.value * player.comboMultiplier);
@@ -175,8 +201,24 @@ export class PhysicsEngine {
     }
   }
 
+  public deactivateMeteor(player: Player): void {
+    if (!player.isMeteor) return;
+    player.isMeteor = false;
+    player.meteorTimer = 0;
+    player.meteorSmashesRemaining = 0;
+    sound.stopCatMusic();
+    player.vy = Math.min(player.vy, 650); // Smooth deceleration back to normal fall speed
+  }
+
+  public triggerPlunge(player: Player): void {
+    player.isPlunging = true;
+    player.vy = Math.max(player.vy, this.plungeSpeed);
+    player.scaleX = 0.7;
+    player.scaleY = 1.45;
+    sound.playPlungeWhoosh();
+  }
+
   public resolveRingCollision(player: Player, ring: Ring): CollisionResult {
-    // Relative angle on the ring at the player's contact point
     let relAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation)) % (Math.PI * 2);
     if (relAngle < 0) relAngle += Math.PI * 2;
 
@@ -217,7 +259,7 @@ export class PhysicsEngine {
   }
 
   public applySteering(player: Player, dir: number, dt: number): void {
-    const steerSpeed = 4.2;
+    const steerSpeed = 5.2; // Snappier steering
     this.applyRotation(player, dir * steerSpeed * dt);
   }
 }

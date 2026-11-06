@@ -24,7 +24,7 @@ class Game {
   // Keyboard controls
   private keys: { [key: string]: boolean } = {};
 
-  // Device Tilt (Gyroscope) controls
+  // Device Tilt (Gyroscope) controls (Inverted per user request)
   private isTiltEnabled = false;
   private tiltDir = 0;
 
@@ -34,6 +34,7 @@ class Game {
   private hudMultiplier: HTMLElement;
   private hudGems: HTMLElement;
   private btnTilt: HTMLElement;
+  private btnPlunge: HTMLElement;
   private meteorLabel: HTMLElement;
   private dot1: HTMLElement;
   private dot2: HTMLElement;
@@ -54,32 +55,39 @@ class Game {
     this.hudMultiplier = document.getElementById('hud-multiplier')!;
     this.hudGems = document.getElementById('hud-gems')!;
     this.btnTilt = document.getElementById('btn-tilt')!;
+    this.btnPlunge = document.getElementById('btn-plunge')!;
     this.meteorLabel = document.getElementById('meteor-label')!;
     this.dot1 = document.getElementById('dot-1')!;
     this.dot2 = document.getElementById('dot-2')!;
     this.dot3 = document.getElementById('dot-3')!;
     this.screenMsg = document.getElementById('screen-msg')!;
 
-    const savedBest = parseInt(localStorage.getItem('vortex_best_depth') || '0', 10);
+    const savedBest = parseInt(localStorage.getItem('apex_best_depth') || '0', 10);
 
     this.player = {
       x: this.physics.worldWidth / 2,
       y: 90,
-      vy: 280,
-      radius: 13,
+      vy: 320,
+      radius: 12,
       consecutiveGaps: 0,
       isMeteor: false,
       meteorTimer: 0,
+      meteorMaxTimer: 4.0,
+      meteorSmashesRemaining: 0,
+      isPlunging: false,
+      plungeBoost: 0,
       cylinderRotation: 0,
       rotationVelocity: 0,
       tiltAngle: 0,
       scaleX: 1,
       scaleY: 1,
+      colorThemeIndex: 0,
       currentDepth: 0,
       maxDepthAchieved: savedBest,
       score: 0,
       totalGems: 0,
       comboMultiplier: 1.0,
+      perfectDropStreak: 0,
       isFallingFast: false,
       trailHistory: []
     };
@@ -88,15 +96,15 @@ class Game {
     this.setupInputs();
     this.showStartScreen();
 
-    // Start render loop
     requestAnimationFrame(this.loop.bind(this));
   }
 
+  // Mobile optimization: limit DPR to 1.5 to eliminate mobile GPU lag
   private setupResize(): void {
     const resize = () => {
       const container = document.getElementById('game-container')!;
       const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       this.canvas.width = rect.width * dpr;
       this.canvas.height = rect.height * dpr;
       this.ctx.resetTransform?.();
@@ -130,10 +138,10 @@ class Game {
       const deltaX = clientX - this.lastPointerX;
       this.lastPointerX = clientX;
 
-      // Rotate cylinder smoothly
-      const rotSpeedFactor = 0.013;
+      // Ultra-snappy rotation
+      const rotSpeedFactor = 0.015;
       this.physics.applyRotation(this.player, deltaX * rotSpeedFactor);
-      this.player.rotationVelocity = deltaX * 0.9;
+      this.player.rotationVelocity = deltaX * 1.1;
     };
 
     const handlePointerUp = () => {
@@ -148,13 +156,30 @@ class Game {
     window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('touchend', handlePointerUp);
 
-    // Keyboard support (A / D, Left / Right)
+    // Plunge button trigger (Piano Tiles quick drop)
+    this.btnPlunge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (this.state === 'PLAYING') {
+        this.physics.triggerPlunge(this.player);
+        this.juice.addShake(4, 0.1);
+      }
+    });
+
+    // Keyboard controls
     window.addEventListener('keydown', (e) => {
       sound.init();
       this.keys[e.code] = true;
 
-      if ((e.code === 'KeyR' || e.code === 'Space') && (this.state === 'START' || this.state === 'CRASHED')) {
+      if ((e.code === 'KeyR' || e.code === 'Enter') && (this.state === 'START' || this.state === 'CRASHED')) {
         this.startGame();
+        return;
+      }
+
+      // Fast Plunge on Space / Down Arrow / KeyS (Piano Tiles flow)
+      if ((e.code === 'Space' || e.code === 'ArrowDown' || e.code === 'KeyS') && this.state === 'PLAYING') {
+        this.physics.triggerPlunge(this.player);
+        this.juice.addShake(4, 0.1);
       }
     });
 
@@ -162,18 +187,18 @@ class Game {
       this.keys[e.code] = false;
     });
 
-    // Tilt (Gyroscope) toggle
+    // Inverted Tilt toggle
     this.btnTilt.addEventListener('click', () => {
       this.toggleTilt();
     });
 
-    // Device orientation event listener
+    // Inverted DeviceOrientation event (left tilts right, right tilts left per user request)
     window.addEventListener('deviceorientation', (e) => {
       if (this.isTiltEnabled && e.gamma !== null) {
-        const deadzone = 3.5;
+        const deadzone = 3.0;
         if (Math.abs(e.gamma) > deadzone) {
-          const clamped = Math.max(-40, Math.min(40, e.gamma));
-          this.tiltDir = clamped / 40;
+          const clamped = Math.max(-35, Math.min(35, e.gamma));
+          this.tiltDir = clamped / 35;
         } else {
           this.tiltDir = 0;
         }
@@ -183,7 +208,6 @@ class Game {
 
   private toggleTilt(): void {
     if (!this.isTiltEnabled) {
-      // Check iOS 13+ permission
       const req = (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> }).requestPermission;
       if (typeof req === 'function') {
         req()
@@ -217,15 +241,15 @@ class Game {
 
   private showStartScreen(): void {
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(10, 5, 24, 0.9); border: 2px solid #00f0ff; border-radius: 18px; padding: 24px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.45);">
-        <h1 style="font-family: 'Orbitron'; font-size: 34px; color: #00f0ff; text-shadow: 0 0 15px #00f0ff; margin-bottom: 2px;">VORTEX DIVE</h1>
-        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">INFINITE NEON FREEFALL</p>
-        <div style="margin: 16px 0; font-size: 14px; color: #b0c6e8; line-height: 1.7;">
+      <div style="background: rgba(10, 4, 22, 0.94); border: 2px solid #00f0ff; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);">
+        <h1 style="font-family: 'Orbitron'; font-size: 32px; color: #00f0ff; text-shadow: 0 0 14px #00f0ff; margin-bottom: 2px;">APEX FALL</h1>
+        <p style="color: #ff007f; font-weight: 700; letter-spacing: 2px; font-size: 13px;">RHYTHMIC SPEED FREEFALL</p>
+        <div style="margin: 15px 0; font-size: 14px; color: #b6ccf0; line-height: 1.7;">
           🌀 <b>Sürükle / A-D:</b> Halkaları Döndür<br>
-          ⚡ <b>Boşluklardan Düş:</b> Derinliğe Plonjon Yap<br>
-          🔥 <b>3 Halka Geç:</b> Meteor Ateşiyle Engelleri Parçala!
+          ⚡ <b>Space / Hızlı Dalış:</b> Piano Tiles Akışı İle Delikten Plonjon Yap!<br>
+          🐱 <b>3 Delik Geç:</b> Kedi Müziği ile Meteor Crush & Engelleri Parçala!
         </div>
-        <button class="btn-action pulse" id="btn-start">DALIŞA BAŞLA</button>
+        <button class="btn-action pulse" id="btn-start">BAŞLA</button>
       </div>
     `;
 
@@ -235,13 +259,13 @@ class Game {
   }
 
   private showCrashScreen(): void {
-    this.juice.addShake(25, 0.5);
+    this.juice.addShake(22, 0.45);
     this.screenMsg.innerHTML = `
-      <div style="background: rgba(35, 5, 18, 0.94); border: 2px solid #ff0055; border-radius: 18px; padding: 24px; box-shadow: 0 0 40px rgba(255, 0, 85, 0.6);">
-        <h2 style="font-family: 'Orbitron'; font-size: 32px; color: #ff0055; text-shadow: 0 0 15px #ff0055; margin-bottom: 2px;">PARÇALANDIN!</h2>
-        <p style="color: #00f0ff; font-weight: 800; font-size: 22px; margin: 10px 0;">${this.player.currentDepth}M DERİNLİK</p>
-        <p style="color: #ffaa00; font-weight: 700; font-size: 15px; margin-bottom: 14px;">SKOR: ${this.player.score}</p>
-        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff0055, #ffaa00);">TEKRAR DIVE [R]</button>
+      <div style="background: rgba(30, 4, 15, 0.95); border: 2px solid #ff003b; border-radius: 18px; padding: 22px; box-shadow: 0 0 35px rgba(255, 0, 59, 0.6);">
+        <h2 style="font-family: 'Orbitron'; font-size: 28px; color: #ff003b; text-shadow: 0 0 14px #ff003b; margin-bottom: 2px;">PARÇALANDIN!</h2>
+        <p style="color: #00f0ff; font-weight: 800; font-size: 22px; margin: 8px 0;">${this.player.currentDepth}M DERİNLİK</p>
+        <p style="color: #ffe600; font-weight: 700; font-size: 15px; margin-bottom: 12px;">SKOR: ${this.player.score}</p>
+        <button class="btn-action pulse" id="btn-restart" style="background: linear-gradient(135deg, #ff003b, #ffaa00);">TEKRAR [R]</button>
       </div>
     `;
 
@@ -258,16 +282,20 @@ class Game {
     this.world.reset();
     this.particles.clear();
 
-    this.player.y = 80;
-    this.player.vy = 280;
+    this.player.y = 90;
+    this.player.vy = 320;
     this.player.consecutiveGaps = 0;
     this.player.isMeteor = false;
+    this.player.meteorTimer = 0;
+    this.player.meteorSmashesRemaining = 0;
+    this.player.isPlunging = false;
     this.player.cylinderRotation = 0;
     this.player.rotationVelocity = 0;
     this.player.currentDepth = 0;
     this.player.score = 0;
     this.player.totalGems = 0;
     this.player.comboMultiplier = 1.0;
+    this.player.colorThemeIndex = 0;
     this.player.isFallingFast = false;
     this.player.trailHistory = [];
   }
@@ -278,16 +306,16 @@ class Game {
     if (this.keys['ArrowLeft'] || this.keys['KeyA']) steerDir += 1;
     if (this.keys['ArrowRight'] || this.keys['KeyD']) steerDir -= 1;
 
-    // Gyroscope tilt steering
-    if (this.isTiltEnabled && Math.abs(this.tiltDir) > 0.05) {
-      steerDir -= this.tiltDir * 1.5;
+    // Inverted Tilt Steering (Per user request: tam ters yapıldı)
+    if (this.isTiltEnabled && Math.abs(this.tiltDir) > 0.04) {
+      steerDir += this.tiltDir * 1.6;
     }
 
     if (steerDir !== 0) {
       this.physics.applySteering(this.player, steerDir, dt);
     }
 
-    // Inertial flick momentum decay
+    // Momentum decay
     if (!this.isPointerDown && Math.abs(this.player.rotationVelocity) > 0.05) {
       this.physics.applyRotation(this.player, this.player.rotationVelocity * dt);
       this.player.rotationVelocity *= Math.pow(0.85, dt * 60);
@@ -307,20 +335,19 @@ class Game {
           this.showCrashScreen();
         },
         () => {
-          this.juice.addShake(6, 0.12);
-        },
-        () => {
-          this.juice.addShake(18, 0.35);
-        },
-        () => {
           this.juice.addShake(5, 0.1);
+        },
+        () => {
+          this.juice.addShake(15, 0.3);
+        },
+        () => {
+          this.juice.addShake(4, 0.08);
         }
       );
 
-      // Best record update
       if (this.player.currentDepth > this.player.maxDepthAchieved) {
         this.player.maxDepthAchieved = this.player.currentDepth;
-        localStorage.setItem('vortex_best_depth', this.player.maxDepthAchieved.toString());
+        localStorage.setItem('apex_best_depth', this.player.maxDepthAchieved.toString());
       }
     }
 
@@ -333,7 +360,7 @@ class Game {
     this.hudMultiplier.textContent = `x${this.player.comboMultiplier.toFixed(1)}`;
     this.hudGems.textContent = `💎 ${this.player.score}`;
 
-    // Update Meteor dots & status
+    // Update Meteor indicators
     const gaps = this.player.consecutiveGaps;
     const isMeteor = this.player.isMeteor;
 
@@ -342,7 +369,8 @@ class Game {
     this.dot3.className = `dot ${gaps >= 3 ? 'fire' : ''}`;
 
     if (isMeteor) {
-      this.meteorLabel.textContent = '🔥 METEOR SMASH!';
+      const remainingSec = Math.max(0, this.player.meteorTimer).toFixed(1);
+      this.meteorLabel.textContent = `🐱 METEOR! (${remainingSec}s)`;
       this.meteorLabel.style.color = '#ff0055';
     } else {
       this.meteorLabel.textContent = `METEOR STREAK (${Math.min(gaps, 3)}/3)`;
@@ -357,7 +385,7 @@ class Game {
 
     this.ctx.clearRect(0, 0, width, height);
 
-    // Dynamic 2.5D background tunnel
+    // Dynamic 2.5D background tunnel with active color theme
     this.juice.drawBackground(
       this.ctx,
       width,
@@ -365,26 +393,32 @@ class Game {
       this.player.currentDepth,
       this.player.isFallingFast,
       this.player.comboMultiplier,
-      this.player.isMeteor
+      this.player.isMeteor,
+      this.player.colorThemeIndex
     );
 
-    // World transform
     this.ctx.save();
     const scale = width / this.physics.worldWidth;
     this.ctx.scale(scale, scale);
     this.ctx.translate(this.juice.shakeOffsetX, -this.juice.cameraY + this.juice.shakeOffsetY);
 
     // Draw rings & gems in 2.5D perspective
-    this.world.draw(this.ctx, this.juice.cameraY, height / scale, this.player.cylinderRotation);
+    this.world.draw(
+      this.ctx,
+      this.juice.cameraY,
+      height / scale,
+      this.player.cylinderRotation,
+      this.player.colorThemeIndex
+    );
+
+    // Draw Laser Aim Guide Line (Piano Tiles precision lane marker)
+    this.drawLaserAimGuide();
 
     // Draw aerodynamic dive trail
     for (const t of this.player.trailHistory) {
       this.ctx.save();
-      this.ctx.globalAlpha = Math.max(0, t.alpha);
+      this.ctx.globalAlpha = Math.max(0, t.alpha * 0.7);
       this.ctx.fillStyle = t.isMeteor ? '#ff5500' : '#00f0ff';
-      this.ctx.shadowBlur = t.isMeteor ? 18 : 10;
-      this.ctx.shadowColor = t.isMeteor ? '#ff0055' : '#00f0ff';
-
       const tr = this.player.radius * t.scale * (t.isMeteor ? 1.2 : 0.85);
       this.ctx.beginPath();
       this.ctx.arc(t.x, t.y, tr, 0, Math.PI * 2);
@@ -392,11 +426,45 @@ class Game {
       this.ctx.restore();
     }
 
-    // Draw Player Cyber Orb
+    // Draw Player
     this.drawPlayer();
 
-    // Draw particles and floating texts
+    // Draw particles
     this.particles.draw(this.ctx);
+
+    this.ctx.restore();
+  }
+
+  // Piano Tiles style laser drop guide line showing exact alignment
+  private drawLaserAimGuide(): void {
+    const upcomingRing = this.world.rings.find((r) => !r.isBroken && r.y > this.player.y);
+    if (!upcomingRing) return;
+
+    const result = this.physics.resolveRingCollision(this.player, upcomingRing);
+    const isAlignedWithGap = result.action === 'PASS_GAP';
+    const isAlignedWithHazard = result.action === 'CRASH';
+
+    this.ctx.save();
+    const startY = this.player.y + this.player.radius + 4;
+    const targetY = upcomingRing.y;
+
+    this.ctx.lineWidth = isAlignedWithGap ? 2.5 : 1.5;
+    this.ctx.strokeStyle = isAlignedWithGap
+      ? 'rgba(0, 255, 204, 0.75)'
+      : (isAlignedWithHazard ? 'rgba(255, 0, 59, 0.75)' : 'rgba(255, 255, 255, 0.25)');
+
+    this.ctx.setLineDash(isAlignedWithGap ? [6, 4] : [3, 5]);
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.player.x, startY);
+    this.ctx.lineTo(this.player.x, targetY);
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+
+    // Lane Target Reticle at the ring surface
+    this.ctx.fillStyle = isAlignedWithGap ? '#00ffcc' : (isAlignedWithHazard ? '#ff003b' : '#ffffff');
+    this.ctx.beginPath();
+    this.ctx.arc(this.player.x, targetY, isAlignedWithGap ? 4.5 : 3, 0, Math.PI * 2);
+    this.ctx.fill();
 
     this.ctx.restore();
   }
@@ -408,24 +476,20 @@ class Game {
 
     const isMeteor = this.player.isMeteor;
 
-    // Glowing outer aura
-    this.ctx.shadowBlur = isMeteor ? 30 : 16;
-    this.ctx.shadowColor = isMeteor ? '#ff0055' : '#00f0ff';
-
     // Body
     this.ctx.fillStyle = isMeteor ? '#ff3300' : '#00e5ff';
     this.ctx.beginPath();
     this.ctx.arc(0, 0, this.player.radius, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Inner bright core
+    // Bright inner core
     this.ctx.fillStyle = '#ffffff';
     this.ctx.beginPath();
     this.ctx.arc(0, 0, this.player.radius * 0.45, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Aerodynamic directional nose tip pointing down
-    ctxTriangle(this.ctx, 0, this.player.radius * 0.9, 6, isMeteor ? '#ffff00' : '#00f0ff');
+    // Downward nose tip
+    ctxTriangle(this.ctx, 0, this.player.radius * 0.9, 5, isMeteor ? '#ffff00' : '#00f0ff');
 
     this.ctx.restore();
   }
@@ -454,7 +518,6 @@ function ctxTriangle(ctx: CanvasRenderingContext2D, x: number, y: number, size: 
   ctx.restore();
 }
 
-// Boot game when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
   new Game();
 });
