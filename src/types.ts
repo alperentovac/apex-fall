@@ -16,9 +16,6 @@ export interface PathSegment {
   length: number;
   tileWidth: number;
   patternType?: PatternType;
-  hasGem?: boolean;
-  gemCollected?: boolean;
-  gemPos?: { x: number; y: number };
 }
 
 export interface Ball {

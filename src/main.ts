@@ -142,6 +142,17 @@ export class Game {
     const btnMute = document.getElementById('btn-mute');
     const btnResume = document.getElementById('btn-resume');
     const btnReplay = document.getElementById('btn-replay');
+    const modalMute = document.getElementById('modal-btn-mute');
+
+    const updateMuteIcons = (muted: boolean) => {
+      const svgOn = document.getElementById('svg-sound-on');
+      const svgOff = document.getElementById('svg-sound-off');
+      if (svgOn) svgOn.style.display = muted ? 'none' : 'block';
+      if (svgOff) svgOff.style.display = muted ? 'block' : 'none';
+      const muteText = document.getElementById('modal-mute-text');
+      if (muteText) muteText.innerText = muted ? 'MÜZİK: KAPALI' : 'MÜZİK: AÇIK';
+      if (btnMute) btnMute.title = muted ? 'Müziği Aç' : 'Müziği Kapat';
+    };
 
     btnHome?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -155,22 +166,13 @@ export class Game {
     btnMute?.addEventListener('click', (e) => {
       e.stopPropagation();
       const muted = sound.toggleMute();
-      if (btnMute) {
-        btnMute.innerHTML = muted ? '🔇' : '🔊';
-        btnMute.title = muted ? 'Müziği Aç' : 'Müziği Kapat';
-      }
-      const modalMute = document.getElementById('modal-btn-mute');
-      if (modalMute) {
-        modalMute.innerHTML = muted ? '🔇 MÜZİK: KAPALI' : '🔊 MÜZİK: AÇIK';
-      }
+      updateMuteIcons(muted);
     });
 
-    const modalMute = document.getElementById('modal-btn-mute');
     modalMute?.addEventListener('click', (e) => {
       e.stopPropagation();
       const muted = sound.toggleMute();
-      if (btnMute) btnMute.innerHTML = muted ? '🔇' : '🔊';
-      if (modalMute) modalMute.innerHTML = muted ? '🔇 MÜZİK: KAPALI' : '🔊 MÜZİK: AÇIK';
+      updateMuteIcons(muted);
     });
 
     btnResume?.addEventListener('click', (e) => {
@@ -307,19 +309,6 @@ export class Game {
       }
 
       this.physics.update(dt, this.ball, this.world);
-
-      // Collectible Path Gems check
-      const currSeg = this.world.segments[this.ball.currentSegmentIndex];
-      if (currSeg?.hasGem && !currSeg.gemCollected && currSeg.gemPos) {
-        const distToGem = Math.hypot(this.ball.x - currSeg.gemPos.x, this.ball.y - currSeg.gemPos.y);
-        if (distToGem < 26) {
-          currSeg.gemCollected = true;
-          this.score += 5; // bonus puan
-          this.particles.spawnCornerSparks(currSeg.gemPos, 12);
-          sound.playGemChime();
-          this.saveBestScores();
-        }
-      }
 
       // Record visual trail
       if (!this.ball.isFalling) {

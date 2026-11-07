@@ -42,9 +42,6 @@ export class GameRenderer {
     // 2. 2.5D Isometric Path with 3D Extruded Blocks & Vivid Contrast
     this.drawPath(ctx, viewport, camera, world, ball);
 
-    // 2.5 Floating Collectible Gems
-    this.drawGems(ctx, viewport, camera, world, ball);
-
     // 3. Neon Ball Trail
     this.drawTrail(ctx, viewport, camera, trail, ball.radius);
 
@@ -54,8 +51,8 @@ export class GameRenderer {
     // 5. Glowing Ball Orb
     this.drawBall(ctx, viewport, camera, ball);
 
-    // 6. Minimalist HUD & State Overlay (Sağ üst: SCORE, Sol üst: BEST)
-    this.drawHUD(ctx, viewport, state, score, combo, bestScore, _bestCombo);
+    // 6. Minimalist HUD & State Overlay (Score en solda tek)
+    this.drawHUD(ctx, viewport, state, score, combo, bestScore);
   }
 
   private drawPath(
@@ -67,7 +64,7 @@ export class GameRenderer {
   ): void {
     const startIdx = Math.max(0, ball.currentSegmentIndex - 3);
     const endIdx = Math.min(world.segments.length, ball.currentSegmentIndex + 22);
-    const blockDepth = 22; // 3D extrusion thickness
+    const blockDepth = 22;
 
     for (let i = startIdx; i < endIdx; i++) {
       const seg = world.segments[i];
@@ -180,47 +177,6 @@ export class GameRenderer {
     }
   }
 
-  private drawGems(
-    ctx: CanvasRenderingContext2D,
-    viewport: { width: number; height: number },
-    camera: { x: number; y: number; zoom: number },
-    world: WorldManager,
-    ball: Ball
-  ): void {
-    const startIdx = Math.max(0, ball.currentSegmentIndex - 2);
-    const endIdx = Math.min(world.segments.length, ball.currentSegmentIndex + 16);
-
-    for (let i = startIdx; i < endIdx; i++) {
-      const seg = world.segments[i];
-      if (!seg.hasGem || seg.gemCollected || !seg.gemPos) continue;
-
-      const floatZ = 10 + Math.sin(this.pulsePhase * 3 + i) * 3;
-      const s = worldToScreen({ x: seg.gemPos.x, y: seg.gemPos.y, z: floatZ }, camera, viewport);
-
-      const gemGrad = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 14);
-      gemGrad.addColorStop(0, '#ffe600');
-      gemGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.6)');
-      gemGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
-      ctx.fillStyle = gemGrad;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, 14, 0, Math.PI * 2);
-      ctx.fill();
-
-      const dSize = 6;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(s.x, s.y - dSize);
-      ctx.lineTo(s.x + dSize * 0.8, s.y);
-      ctx.lineTo(s.x, s.y + dSize);
-      ctx.lineTo(s.x - dSize * 0.8, s.y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-  }
-
   private drawTrail(
     ctx: CanvasRenderingContext2D,
     viewport: { width: number; height: number },
@@ -280,54 +236,50 @@ export class GameRenderer {
     state: GameState,
     score: number,
     combo: number,
-    bestScore: number,
-    _bestCombo: number
+    bestScore: number
   ): void {
     ctx.save();
 
-    // Top HUD Bar background container for high readability
-    ctx.fillStyle = 'rgba(9, 13, 24, 0.75)';
-    ctx.fillRect(0, 0, viewport.width, 76);
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+    // Top HUD Bar background container
+    ctx.fillStyle = 'rgba(9, 13, 24, 0.65)';
+    ctx.fillRect(0, 0, viewport.width, 74);
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, 76);
-    ctx.lineTo(viewport.width, 76);
+    ctx.moveTo(0, 74);
+    ctx.lineTo(viewport.width, 74);
     ctx.stroke();
 
-    // 1. Sol Üst: EN İYİ SKOR (BEST)
+    // 1. SOLDA TEK SCORE: Kullanıcı talebi (2 yerde score olmasın, en solda tek olsun)
     ctx.textAlign = 'left';
-    ctx.font = '700 13px "Rajdhani", sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('EN İYİ', 22, 28);
+    ctx.font = '700 12px "Space Grotesk", "Rajdhani", sans-serif';
+    ctx.letterSpacing = '2px';
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+    ctx.fillText('SCORE', 20, 26);
 
-    ctx.font = '900 28px "Orbitron", monospace';
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`${bestScore}`, 22, 58);
+    ctx.font = '900 34px "Orbitron", "Space Grotesk", monospace';
+    ctx.letterSpacing = '1px';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
+    ctx.shadowBlur = 10;
+    ctx.fillText(score.toString(), 20, 60);
+    ctx.shadowBlur = 0; // reset shadow
 
-    // 2. Orta: KOMBO (Varsa)
-    if (combo > 0) {
+    // 2. ORTA: KOMBO (Sadece kombo > 1 iken gösterilir)
+    if (combo > 1) {
       ctx.textAlign = 'center';
-      ctx.font = '700 13px "Rajdhani", sans-serif';
+      ctx.font = '700 11px "Space Grotesk", "Rajdhani", sans-serif';
+      ctx.letterSpacing = '1.5px';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText('KOMBO', viewport.width / 2, 28);
+      ctx.fillText('COMBO', viewport.width / 2, 26);
 
       ctx.font = '900 28px "Orbitron", monospace';
+      ctx.letterSpacing = '1px';
       ctx.fillStyle = combo >= 50 ? '#00f0ff' : '#ffe600';
       ctx.fillText(`×${combo}`, viewport.width / 2, 58);
     }
 
-    // 3. SAĞ ÜST: SKOR (Kullanıcı talebi: Score sağ üstte tek tek artsın)
-    // We leave 95px on the far right for the Home & Mute buttons in HTML overlay
-    const scoreRightX = viewport.width - 110;
-    ctx.textAlign = 'right';
-    ctx.font = '700 13px "Rajdhani", sans-serif';
-    ctx.fillStyle = '#00f0ff';
-    ctx.fillText('SKOR', scoreRightX, 28);
-
-    ctx.font = '900 32px "Orbitron", monospace';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(score.toString(), scoreRightX, 60);
+    // SAĞ ÜST: Canvas üzerinde skor YOK (Sağ üstte sadece HTML'deki %50 şeffaf neon Home & Mute butonları var)
 
     // State overlays
     if (state === 'START') {
@@ -335,33 +287,88 @@ export class GameRenderer {
       ctx.fillRect(0, 0, viewport.width, viewport.height);
 
       ctx.textAlign = 'center';
-      ctx.font = '900 34px "Orbitron", monospace';
+      ctx.font = '900 36px "Orbitron", sans-serif';
+      ctx.letterSpacing = '2px';
       ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.8)';
+      ctx.shadowBlur = 16;
       ctx.fillText('ZIGZAG FLOW', viewport.width / 2, viewport.height / 2 - 40);
+      ctx.shadowBlur = 0;
 
-      ctx.font = '700 16px "Orbitron", monospace';
+      ctx.font = '700 15px "Space Grotesk", "Orbitron", sans-serif';
+      ctx.letterSpacing = '1px';
       ctx.fillStyle = '#ffffff';
       ctx.fillText('BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 15);
 
-      ctx.font = '600 15px "Rajdhani", sans-serif';
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 13px "Space Grotesk", "Rajdhani", sans-serif';
+      ctx.letterSpacing = '1px';
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
       ctx.fillText('HER KÖŞEDE DÖNÜŞ +1 PUAN', viewport.width / 2, viewport.height / 2 + 45);
     } else if (state === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(9, 13, 24, 0.85)';
+      ctx.fillStyle = 'rgba(9, 13, 24, 0.82)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
 
+      // DÜŞÜŞ ALGILANDI KALDIRILDI!
       ctx.textAlign = 'center';
-      ctx.font = '900 30px "Orbitron", monospace';
-      ctx.fillStyle = '#ff0055';
-      ctx.fillText('DÜŞÜŞ ALGILANDI', viewport.width / 2, viewport.height / 2 - 50);
 
-      ctx.font = '900 24px "Orbitron", monospace';
+      // SKOR
+      ctx.font = '700 13px "Space Grotesk", sans-serif';
+      ctx.letterSpacing = '2px';
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+      ctx.fillText('SKOR', viewport.width / 2, viewport.height / 2 - 65);
+
+      ctx.font = '900 48px "Orbitron", monospace';
+      ctx.letterSpacing = '1px';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`SKOR: ${score}   |   EN İYİ: ${bestScore}`, viewport.width / 2, viewport.height / 2);
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.6)';
+      ctx.shadowBlur = 18;
+      ctx.fillText(score.toString(), viewport.width / 2, viewport.height / 2 - 15);
+      ctx.shadowBlur = 0;
 
-      ctx.font = '700 15px "Orbitron", monospace';
-      ctx.fillStyle = '#00f0ff';
-      ctx.fillText('YENİDEN BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 55);
+      // EN İYİ SKOR
+      ctx.font = '700 14px "Space Grotesk", sans-serif';
+      ctx.letterSpacing = '1.5px';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`EN İYİ: ${bestScore}`, viewport.width / 2, viewport.height / 2 + 25);
+
+      // YENİDEN BAŞLAMAK İÇİN DOKUN
+      ctx.font = '700 14px "Space Grotesk", sans-serif';
+      ctx.letterSpacing = '1px';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillText('YENİDEN BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 65);
+
+      // %50 Şeffaf Neon Replay Butonu/İkonu
+      const iconY = viewport.height / 2 + 115;
+      const radius = 26;
+
+      ctx.beginPath();
+      ctx.arc(viewport.width / 2, iconY, radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Replay dairesel ok çizimi (%50 şeffaf neon)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.65)';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(viewport.width / 2, iconY, 13, -Math.PI * 0.8, Math.PI * 0.65);
+      ctx.stroke();
+
+      // Ok ucu
+      const arrowTipX = viewport.width / 2 + Math.cos(Math.PI * 0.65) * 13;
+      const arrowTipY = iconY + Math.sin(Math.PI * 0.65) * 13;
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.65)';
+      ctx.beginPath();
+      ctx.moveTo(arrowTipX - 4, arrowTipY - 6);
+      ctx.lineTo(arrowTipX + 3, arrowTipY);
+      ctx.lineTo(arrowTipX - 5, arrowTipY + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore();

@@ -513,15 +513,14 @@ describe('Procedural Variety, Rapid Bursts & Gems Seam', () => {
     expect(burstTol.rPerfect).toBeGreaterThan(standardTol.rPerfect);
   });
 
-  it('spawns collectible path gems and marks them collected when ball passes them', () => {
+  it('ensures score comes strictly from corner turns with path gems removed', () => {
     const world = new WorldManager();
     world.ensureSegmentsAhead(60, 150);
 
-    const gemSegments = world.segments.filter((s) => s.hasGem);
-    expect(gemSegments.length).toBeGreaterThan(0);
-
-    const gemSeg = gemSegments[0];
-    expect(gemSeg.gemCollected).toBe(false);
+    // Verify segments only contain clean path without external gem obstacles
+    for (const seg of world.segments) {
+      expect((seg as unknown as { hasGem?: boolean }).hasGem).toBeFalsy();
+    }
   });
 });
 

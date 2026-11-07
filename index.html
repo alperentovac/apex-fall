@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
-  <title>ZIGZAG FLOW — Minimalist Rhythmic 2.5D Arcade</title>
+  <title>ZIGZAG FLOW</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -20,8 +20,8 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #05070d;
-      font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #04060b;
+      font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -35,8 +35,8 @@
       max-height: 920px;
       background: #090D18;
       border-radius: 28px;
-      border: 1px solid rgba(0, 240, 255, 0.18);
-      box-shadow: 0 0 60px rgba(0, 240, 255, 0.12), 0 20px 40px rgba(0, 0, 0, 0.8);
+      border: 1.5px solid rgba(0, 240, 255, 0.28);
+      box-shadow: 0 0 50px rgba(0, 240, 255, 0.14), 0 20px 40px rgba(0, 0, 0, 0.85);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -57,38 +57,49 @@
       cursor: pointer;
     }
 
-    /* Floating Top-Right Action Buttons */
+    /* Floating Top-Right Neon Controls (%50 Opak, Oyunun Çerçeve Rengi, Emojisiz Saf Vektör) */
     .top-controls {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 15px;
+      right: 16px;
       display: flex;
       gap: 10px;
       z-index: 20;
     }
-    .btn-icon {
-      width: 42px;
-      height: 42px;
-      background: rgba(14, 23, 42, 0.82);
-      border: 1.5px solid rgba(0, 240, 255, 0.35);
+    .btn-neon {
+      width: 40px;
+      height: 40px;
+      background: rgba(0, 240, 255, 0.06);
+      border: 1.5px solid rgba(0, 240, 255, 0.5);
       border-radius: 12px;
-      color: #00f0ff;
-      font-size: 19px;
+      color: rgba(0, 240, 255, 0.75);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       backdrop-filter: blur(8px);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
-      transition: all 0.15s ease;
+      opacity: 0.5;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
     }
-    .btn-icon:hover {
-      background: rgba(0, 240, 255, 0.2);
+    .btn-neon:hover {
+      opacity: 0.95;
       border-color: #00f0ff;
-      transform: scale(1.05);
+      color: #00f0ff;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
+      transform: scale(1.04);
     }
-    .btn-icon:active {
+    .btn-neon:active {
       transform: scale(0.92);
+    }
+    .btn-neon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* Pause & Home Modal */
@@ -99,7 +110,7 @@
       width: 100%;
       height: 100%;
       background: rgba(9, 13, 24, 0.88);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
       display: none;
       flex-direction: column;
       align-items: center;
@@ -108,32 +119,33 @@
       padding: 24px;
     }
     .modal-box {
-      background: rgba(16, 27, 50, 0.95);
-      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      background: rgba(14, 23, 42, 0.94);
+      border: 1.5px solid rgba(0, 240, 255, 0.5);
       border-radius: 24px;
       padding: 32px 28px;
       width: 100%;
-      max-width: 360px;
+      max-width: 350px;
       text-align: center;
-      box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
       display: flex;
       flex-direction: column;
       gap: 18px;
     }
     .modal-title {
       font-family: 'Orbitron', monospace;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 900;
       color: #00f0ff;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 14px rgba(0, 240, 255, 0.6);
     }
     .modal-stats {
       display: flex;
       justify-content: space-around;
-      background: rgba(9, 13, 24, 0.6);
+      background: rgba(9, 13, 24, 0.65);
       border-radius: 14px;
       padding: 12px 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.15);
     }
     .modal-stat-item {
       display: flex;
@@ -144,11 +156,11 @@
       font-size: 11px;
       font-weight: 700;
       color: #94a3b8;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
     }
     .stat-val {
       font-family: 'Orbitron', monospace;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 900;
       color: #ffffff;
     }
@@ -160,40 +172,32 @@
       width: 100%;
       padding: 14px 20px;
       border-radius: 14px;
-      font-family: 'Orbitron', monospace;
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
       cursor: pointer;
-      border: none;
+      border: 1.5px solid rgba(0, 240, 255, 0.5);
+      background: rgba(0, 240, 255, 0.08);
+      color: #00f0ff;
+      opacity: 0.85;
       transition: all 0.15s ease;
     }
-    .btn-resume {
-      background: linear-gradient(135deg, #00f0ff, #0284c7);
-      color: #04101e;
+    .btn-modal:hover {
+      opacity: 1;
+      border-color: #00f0ff;
       box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
-    }
-    .btn-resume:hover {
       transform: scale(1.02);
-      box-shadow: 0 0 26px rgba(0, 240, 255, 0.6);
-    }
-    .btn-replay {
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
-      border: 1.5px solid rgba(255, 255, 255, 0.2);
-    }
-    .btn-replay:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: #ffffff;
-    }
-    .btn-mute-toggle {
-      background: rgba(14, 23, 42, 0.7);
-      color: #94a3b8;
-      border: 1px solid rgba(0, 240, 255, 0.25);
-      font-size: 13px;
     }
     .btn-modal:active {
       transform: scale(0.96);
+    }
+    .btn-modal svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
     }
   </style>
 </head>
@@ -201,16 +205,33 @@
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Floating Top-Right HUD Controls -->
+    <!-- Floating Top-Right Neon Controls (%50 Opak, Oyunun Çerçeve Rengi, Emojisiz Saf Vektör) -->
     <div class="top-controls">
-      <button id="btn-mute" class="btn-icon" title="Müziği Aç / Kapat">🔊</button>
-      <button id="btn-home" class="btn-icon" title="Durdur / Menü">🏠</button>
+      <button id="btn-mute" class="btn-neon" title="Sesi Aç / Kapat">
+        <svg id="svg-sound-on" viewBox="0 0 24 24">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        </svg>
+        <svg id="svg-sound-off" viewBox="0 0 24 24" style="display: none;">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+      </button>
+
+      <button id="btn-home" class="btn-neon" title="Durdur / Menü">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      </button>
     </div>
 
     <!-- Pause & Home Modal Dialog -->
     <div id="pause-modal">
       <div class="modal-box">
-        <div class="modal-title">OYUN DURAKLATILDI</div>
+        <div class="modal-title">DURAKLATILDI</div>
         <div class="modal-stats">
           <div class="modal-stat-item">
             <span class="stat-label">SKOR</span>
@@ -222,16 +243,19 @@
           </div>
         </div>
 
-        <button id="btn-resume" class="btn-modal btn-resume">
-          <span>▶️</span> DEVAM ET
+        <button id="btn-resume" class="btn-modal">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
+          DEVAM ET
         </button>
 
-        <button id="btn-replay" class="btn-modal btn-replay">
-          <span>🔄</span> TEKRAR OYNA
+        <button id="btn-replay" class="btn-modal">
+          <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          TEKRAR OYNA
         </button>
 
-        <button id="modal-btn-mute" class="btn-modal btn-mute-toggle">
-          <span>🔊</span> MÜZİK: AÇIK
+        <button id="modal-btn-mute" class="btn-modal">
+          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <span id="modal-mute-text">MÜZİK: AÇIK</span>
         </button>
       </div>
     </div>

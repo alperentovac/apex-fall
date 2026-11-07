@@ -67,8 +67,7 @@ export class WorldManager {
       end: { x: initialLength, y: 0 },
       length: initialLength,
       tileWidth: this.tileWidth,
-      patternType: 'STANDARD',
-      hasGem: false
+      patternType: 'STANDARD'
     });
 
     // Pre-generate ample segments ahead
@@ -134,18 +133,6 @@ export class WorldManager {
         y: nextDir === 'Y' ? start.y + length : start.y
       };
 
-      // Spawning collectible path gems (especially on highways or mid-segments)
-      const hasGem =
-        this.segments.length > 2 &&
-        (patternType === 'HIGHWAY' || (patternType === 'STANDARD' && this.random() < 0.25));
-
-      const gemPos = hasGem
-        ? {
-            x: Math.round((start.x + end.x) / 2),
-            y: Math.round((start.y + end.y) / 2)
-          }
-        : undefined;
-
       this.segments.push({
         index: this.segments.length,
         dir: nextDir,
@@ -153,10 +140,7 @@ export class WorldManager {
         end,
         length,
         tileWidth: this.tileWidth,
-        patternType,
-        hasGem,
-        gemCollected: false,
-        gemPos
+        patternType
       });
     }
   }
