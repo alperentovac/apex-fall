@@ -6,6 +6,8 @@ export type TurnResult = 'PERFECT' | 'GOOD' | 'MISS';
 
 export type AudioTier = 1 | 2 | 3 | 4 | 5;
 
+export type PatternType = 'STANDARD' | 'RAPID_BURST' | 'HIGHWAY';
+
 export interface PathSegment {
   index: number;
   dir: Direction;
@@ -13,6 +15,10 @@ export interface PathSegment {
   end: { x: number; y: number };
   length: number;
   tileWidth: number;
+  patternType?: PatternType;
+  hasGem?: boolean;
+  gemCollected?: boolean;
+  gemPos?: { x: number; y: number };
 }
 
 export interface Ball {

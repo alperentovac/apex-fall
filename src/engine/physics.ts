@@ -11,11 +11,19 @@ export class PhysicsEngine {
   public rPerfect = 16;
   public rGood = 42;
 
-  public getTolerances(speed: number): { rPerfect: number; rGood: number } {
+  public getTolerances(speed: number, isRapidBurst = false): { rPerfect: number; rGood: number } {
     const ratio = Math.min(1, Math.max(0, (speed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed)));
+    let rPerfect = 16 + ratio * 8;
+    let rGood = 42 + ratio * 18;
+
+    if (isRapidBurst) {
+      rPerfect = Math.round(rPerfect * 1.35);
+      rGood = Math.round(rGood * 1.35);
+    }
+
     return {
-      rPerfect: 16 + ratio * 8,
-      rGood: 42 + ratio * 18
+      rPerfect,
+      rGood
     };
   }
 
@@ -32,7 +40,8 @@ export class PhysicsEngine {
     }
 
     const currentSpeed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
-    const { rPerfect, rGood } = this.getTolerances(currentSpeed);
+    const isRapidBurst = currentSeg.patternType === 'RAPID_BURST';
+    const { rPerfect, rGood } = this.getTolerances(currentSpeed, isRapidBurst);
 
     const corner = currentSeg.end;
     const distToCorner = Math.hypot(ball.x - corner.x, ball.y - corner.y);

@@ -42,6 +42,9 @@ export class GameRenderer {
     // 2. 2.5D Isometric Path with 3D Extruded Blocks & Vivid Contrast
     this.drawPath(ctx, viewport, camera, world, ball);
 
+    // 2.5 Floating Collectible Gems
+    this.drawGems(ctx, viewport, camera, world, ball);
+
     // 3. Neon Ball Trail
     this.drawTrail(ctx, viewport, camera, trail, ball.radius);
 
@@ -130,26 +133,39 @@ export class GameRenderer {
       ctx.closePath();
 
       const isCurrent = i === ball.currentSegmentIndex;
-      ctx.fillStyle = isCurrent ? '#243b60' : '#1a2740';
-      ctx.fill();
+      const pattern = seg.patternType || 'STANDARD';
 
-      // Vibrant geometric edge lines
-      ctx.strokeStyle = isCurrent ? '#00f0ff' : 'rgba(0, 240, 255, 0.4)';
-      ctx.lineWidth = isCurrent ? 2 : 1.5;
+      // Dynamic aesthetic color styling per procedural pattern type
+      if (pattern === 'RAPID_BURST') {
+        ctx.fillStyle = isCurrent ? '#381e54' : '#26153b';
+        ctx.fill();
+        ctx.strokeStyle = isCurrent ? '#f43f5e' : 'rgba(244, 63, 94, 0.5)';
+      } else if (pattern === 'HIGHWAY') {
+        ctx.fillStyle = isCurrent ? '#163847' : '#102633';
+        ctx.fill();
+        ctx.strokeStyle = isCurrent ? '#2dd4bf' : 'rgba(45, 212, 191, 0.5)';
+      } else {
+        ctx.fillStyle = isCurrent ? '#243b60' : '#1a2740';
+        ctx.fill();
+        ctx.strokeStyle = isCurrent ? '#00f0ff' : 'rgba(0, 240, 255, 0.4)';
+      }
+
+      ctx.lineWidth = isCurrent ? 2.2 : 1.5;
       ctx.stroke();
 
       // Corner platform beacon
       const cornerScreen = worldToScreen({ x: seg.end.x, y: seg.end.y, z: 0 }, camera, viewport);
       const isTargetCorner = isCurrent;
+      const beaconColor = pattern === 'RAPID_BURST' ? '#f43f5e' : pattern === 'HIGHWAY' ? '#2dd4bf' : '#00f0ff';
 
       if (isTargetCorner) {
         // Concentric animated beacon on the active turn target
         const pulseSize = 10 + Math.sin(this.pulsePhase * 2) * 3;
         ctx.beginPath();
         ctx.arc(cornerScreen.x, cornerScreen.y, pulseSize, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+        ctx.fillStyle = pattern === 'RAPID_BURST' ? 'rgba(244, 63, 94, 0.25)' : 'rgba(0, 240, 255, 0.2)';
         ctx.fill();
-        ctx.strokeStyle = '#00f0ff';
+        ctx.strokeStyle = beaconColor;
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
@@ -160,9 +176,52 @@ export class GameRenderer {
       } else {
         ctx.beginPath();
         ctx.arc(cornerScreen.x, cornerScreen.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.45)';
+        ctx.fillStyle = beaconColor === '#00f0ff' ? 'rgba(0, 240, 255, 0.45)' : beaconColor;
         ctx.fill();
       }
+    }
+  }
+
+  private drawGems(
+    ctx: CanvasRenderingContext2D,
+    viewport: { width: number; height: number },
+    camera: { x: number; y: number; zoom: number },
+    world: WorldManager,
+    ball: Ball
+  ): void {
+    const startIdx = Math.max(0, ball.currentSegmentIndex - 2);
+    const endIdx = Math.min(world.segments.length, ball.currentSegmentIndex + 16);
+
+    for (let i = startIdx; i < endIdx; i++) {
+      const seg = world.segments[i];
+      if (!seg.hasGem || seg.gemCollected || !seg.gemPos) continue;
+
+      const floatZ = 10 + Math.sin(this.pulsePhase * 3 + i) * 3;
+      const s = worldToScreen({ x: seg.gemPos.x, y: seg.gemPos.y, z: floatZ }, camera, viewport);
+
+      // Gem outer radiance glow
+      const gemGrad = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 14);
+      gemGrad.addColorStop(0, '#ffe600');
+      gemGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.6)');
+      gemGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = gemGrad;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Sharp glowing diamond octahedron
+      const dSize = 6;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y - dSize);
+      ctx.lineTo(s.x + dSize * 0.8, s.y);
+      ctx.lineTo(s.x, s.y + dSize);
+      ctx.lineTo(s.x - dSize * 0.8, s.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
   }
 

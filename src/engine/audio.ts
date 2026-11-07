@@ -240,6 +240,28 @@ export class SoundManager {
     osc.stop(now + 0.08);
   }
 
+  public playGemChime(): void {
+    if (!this.ensureContext() || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    [1567.98, 2093.00].forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      const t = now + idx * 0.06;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    });
+  }
+
   public playMissTurn(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;

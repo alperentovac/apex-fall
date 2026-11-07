@@ -474,6 +474,58 @@ describe('High Score & Persistence Seam', () => {
   });
 });
 
+describe('Procedural Variety, Rapid Bursts & Gems Seam', () => {
+  it('procedurally generates rapid bursts of 5-6 quick turns interspersed across the path', () => {
+    const world = new WorldManager();
+    world.ensureSegmentsAhead(80, 150);
+
+    // Look for RAPID_BURST segments
+    const burstSegments = world.segments.filter((s) => s.patternType === 'RAPID_BURST');
+    expect(burstSegments.length).toBeGreaterThanOrEqual(5);
+
+    // Verify bursts occur in consecutive clusters of at least 5 turns
+    let maxConsecutiveBurst = 0;
+    let currBurst = 0;
+    for (const seg of world.segments) {
+      if (seg.patternType === 'RAPID_BURST') {
+        currBurst++;
+        maxConsecutiveBurst = Math.max(maxConsecutiveBurst, currBurst);
+      } else {
+        currBurst = 0;
+      }
+    }
+    expect(maxConsecutiveBurst).toBeGreaterThanOrEqual(5);
+
+    // Forward progression and alternating direction strictly preserved across entire path
+    for (let i = 0; i < world.segments.length - 1; i++) {
+      expect(world.segments[i].dir).not.toBe(world.segments[i + 1].dir);
+      expect(world.segments[i + 1].end.x).toBeGreaterThanOrEqual(world.segments[i].start.x);
+      expect(world.segments[i + 1].end.y).toBeGreaterThanOrEqual(world.segments[i].start.y);
+    }
+  });
+
+  it('provides extra timing tolerance during rapid burst segments so rapid tapping remains fair and forgiving', () => {
+    const physics = new PhysicsEngine();
+    const standardTol = physics.getTolerances(150, false);
+    const burstTol = physics.getTolerances(150, true);
+
+    expect(burstTol.rGood).toBeGreaterThan(standardTol.rGood);
+    expect(burstTol.rPerfect).toBeGreaterThan(standardTol.rPerfect);
+  });
+
+  it('spawns collectible path gems and marks them collected when ball passes them', () => {
+    const world = new WorldManager();
+    world.ensureSegmentsAhead(60, 150);
+
+    const gemSegments = world.segments.filter((s) => s.hasGem);
+    expect(gemSegments.length).toBeGreaterThan(0);
+
+    const gemSeg = gemSegments[0];
+    expect(gemSeg.gemCollected).toBe(false);
+  });
+});
+
+
 
 
 

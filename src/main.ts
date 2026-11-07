@@ -214,6 +214,19 @@ export class Game {
 
       this.physics.update(dt, this.ball, this.world);
 
+      // Collectible Path Gems check
+      const currSeg = this.world.segments[this.ball.currentSegmentIndex];
+      if (currSeg?.hasGem && !currSeg.gemCollected && currSeg.gemPos) {
+        const distToGem = Math.hypot(this.ball.x - currSeg.gemPos.x, this.ball.y - currSeg.gemPos.y);
+        if (distToGem < 26) {
+          currSeg.gemCollected = true;
+          this.score += 25;
+          this.particles.spawnCornerSparks(currSeg.gemPos, 12);
+          sound.playGemChime();
+          this.saveBestScores();
+        }
+      }
+
       // Record visual trail
       if (!this.ball.isFalling) {
         this.ballTrail.unshift({ x: this.ball.x, y: this.ball.y, z: this.ball.z, alpha: 1.0 });
