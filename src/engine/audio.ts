@@ -1,15 +1,15 @@
-// Procedural Web Audio synthesizer with Chiptune Cat Melody, Piano Tile chimes & Tactile Rotary Snap.
-// Zero external assets, ultra-fast and lightweight.
-class SoundManager {
-  private ctx: AudioContext | null = null;
-  private isMuted: boolean = false;
-  private initialized: boolean = false;
-  private catMusicTimer: number | null = null;
-  private catNoteIndex: number = 0;
-  private isCatMusicPlaying: boolean = false;
+import { TurnResult } from '../types';
 
-  // Pentatonic & musical scale pitches for Piano Tile dopamine
-  private pianoNotes = [
+export class SoundManager {
+  private ctx: AudioContext | null = null;
+  public isMuted = false;
+  private initialized = false;
+  private activeTier = 0;
+
+  public onMilestone?: (combo: number, tier: number) => void;
+
+  // Pentatonic scale (C major / A minor pentatonic frequencies C4 to A6)
+  private pentatonicFrequencies = [
     261.63, // C4
     293.66, // D4
     329.63, // E4
@@ -23,27 +23,24 @@ class SoundManager {
     1046.50, // C6
     1174.66, // D6
     1318.51, // E6
-    1567.98  // G6
-  ];
-
-  // Cute Chiptune Cat Melody Notes (Nyan Cat / Japanese 8-bit arcade motif)
-  private catMelody = [
-    739.99, 830.61, 622.25, 622.25, 493.88, 587.33, 554.37, 493.88,
-    493.88, 554.37, 587.33, 587.33, 554.37, 493.88, 554.37, 622.25,
-    739.99, 830.61, 622.25, 739.99, 554.37, 622.25, 493.88, 554.37,
-    493.88, 622.25, 739.99, 622.25, 739.99, 830.61, 622.25, 554.37
+    1567.98, // G6
+    1760.00  // A6
   ];
 
   public init(): void {
     if (this.initialized) return;
     try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-      this.initialized = true;
+      if (typeof window !== 'undefined') {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+          this.initialized = true;
+        }
+      }
     } catch {
-      // Audio might be blocked until user gesture
+      // AudioContext unavailable or blocked
     }
   }
 
@@ -52,137 +49,178 @@ class SoundManager {
       this.init();
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return !this.isMuted && this.ctx !== null;
   }
 
-  public toggleMute(): boolean {
-    this.isMuted = !this.isMuted;
-    if (this.isMuted) {
-      this.stopCatMusic();
-    }
-    return this.isMuted;
+  public getTierForCombo(combo: number): number {
+    if (combo <= 0) return 0;
+    if (combo < 10) return 1;
+    if (combo < 25) return 2;
+    if (combo < 50) return 3;
+    if (combo < 100) return 4;
+    return 5;
   }
 
-  // Tactile 90-degree rotary snap click
-  public playSnapClick(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(650, now);
-    osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
-
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.05);
+  public getActiveTier(): number {
+    return this.activeTier;
   }
 
-  // Piano Tiles style crisp rhythmic note on every gap passed
-  public playPianoTileNote(streak: number): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
+  public handleTurnEvent(result: TurnResult, combo: number): void {
+    if (result === 'PERFECT') {
+      const comboTier = this.getTierForCombo(combo);
+      this.activeTier = Math.max(this.activeTier, comboTier);
 
-    const noteIdx = (streak - 1) % this.pianoNotes.length;
-    const freq = this.pianoNotes[noteIdx];
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq, now);
-    osc.frequency.exponentialRampToValueAtTime(freq * 1.04, now + 0.08);
-
-    gain.gain.setValueAtTime(0.28, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.2);
-
-    // Overtone sparkle
-    const harm = this.ctx.createOscillator();
-    const harmGain = this.ctx.createGain();
-    harm.type = 'sine';
-    harm.frequency.setValueAtTime(freq * 2, now);
-    harmGain.gain.setValueAtTime(0.12, now);
-    harmGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-    harm.connect(harmGain);
-    harmGain.connect(this.ctx.destination);
-    harm.start(now);
-    harm.stop(now + 0.14);
-  }
-
-  // Cute 8-bit Chiptune Cat Music Loop during Meteor Crush
-  public startCatMusic(): void {
-    if (this.isCatMusicPlaying) return;
-    if (!this.ensureContext() || !this.ctx) return;
-
-    this.isCatMusicPlaying = true;
-    this.catNoteIndex = 0;
-
-    const stepMs = 125;
-    const playNextNote = () => {
-      if (!this.isCatMusicPlaying || !this.ctx) return;
-
-      const now = this.ctx.currentTime;
-      const freq = this.catMelody[this.catNoteIndex % this.catMelody.length];
-      this.catNoteIndex++;
-
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, now);
-
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.12);
-
-      if (this.catNoteIndex % 2 === 0) {
-        const bassOsc = this.ctx.createOscillator();
-        const bassGain = this.ctx.createGain();
-        bassOsc.type = 'triangle';
-        bassOsc.frequency.setValueAtTime(freq * 0.25, now);
-        bassGain.gain.setValueAtTime(0.15, now);
-        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        bassOsc.connect(bassGain);
-        bassGain.connect(this.ctx.destination);
-        bassOsc.start(now);
-        bassOsc.stop(now + 0.2);
+      // Check milestones at 10, 25, 50, 100
+      if (combo === 10 || combo === 25 || combo === 50 || combo === 100) {
+        this.onMilestone?.(combo, this.activeTier);
+        this.playMilestoneFlourish(this.activeTier);
       }
 
-      this.catMusicTimer = window.setTimeout(playNextNote, stepMs);
-    };
-
-    playNextNote();
-  }
-
-  public stopCatMusic(): void {
-    this.isCatMusicPlaying = false;
-    if (this.catMusicTimer !== null) {
-      clearTimeout(this.catMusicTimer);
-      this.catMusicTimer = null;
+      this.playPerfectTurn(combo, this.activeTier);
+    } else if (result === 'GOOD') {
+      // Degrade tier smoothly by 1 level
+      this.activeTier = Math.max(0, this.activeTier - 1);
+      this.playGoodTurn();
+    } else {
+      // Missed turn
+      this.activeTier = 0;
+      this.playMissTurn();
     }
   }
 
-  public playBounce(): void {
+  public playPerfectTurn(combo: number, tier: number): void {
+    if (!this.ensureContext() || !this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const noteIdx = (combo - 1) % this.pentatonicFrequencies.length;
+    const freq = this.pentatonicFrequencies[noteIdx];
+
+    // Primary bell/piano tone
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = tier >= 4 ? 'sine' : 'triangle';
+    osc.frequency.setValueAtTime(freq, now);
+
+    const baseVol = 0.22;
+    gain.gain.setValueAtTime(baseVol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (tier >= 5 ? 0.35 : 0.2));
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+
+    // Tier 1+: Sparkle harmonic overtone (octave up)
+    if (tier >= 1) {
+      const harm = this.ctx.createOscillator();
+      const harmGain = this.ctx.createGain();
+      harm.type = 'sine';
+      harm.frequency.setValueAtTime(freq * 2, now);
+      harmGain.gain.setValueAtTime(baseVol * 0.4, now);
+      harmGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      harm.connect(harmGain);
+      harmGain.connect(this.ctx.destination);
+      harm.start(now);
+      harm.stop(now + 0.16);
+    }
+
+    // Tier 2+: Percussive hi-hat / click pulse
+    if (tier >= 2) {
+      this.playPercussionPulse(now);
+    }
+
+    // Tier 3+: Deep driving bass synth
+    if (tier >= 3) {
+      this.playBassPulse(now, freq);
+    }
+
+    // Tier 4+: Rich harmonic arp note (+ fifth)
+    if (tier >= 4) {
+      this.playArpNote(now + 0.05, freq * 1.5);
+    }
+
+    // Tier 5: Full Flow Mode shimmer flourish
+    if (tier >= 5) {
+      this.playFlowShimmer(now, freq);
+    }
+  }
+
+  private playPercussionPulse(time: number): void {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, time);
+    osc.frequency.exponentialRampToValueAtTime(200, time + 0.035);
+
+    gain.gain.setValueAtTime(0.09, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.045);
+  }
+
+  private playBassPulse(time: number, primaryFreq: number): void {
+    if (!this.ctx) return;
+    const bassOsc = this.ctx.createOscillator();
+    const bassGain = this.ctx.createGain();
+
+    // 2 octaves below
+    const bassFreq = Math.max(55, primaryFreq / 4);
+    bassOsc.type = 'triangle';
+    bassOsc.frequency.setValueAtTime(bassFreq, time);
+
+    bassGain.gain.setValueAtTime(0.24, time);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, time + 0.28);
+
+    bassOsc.connect(bassGain);
+    bassGain.connect(this.ctx.destination);
+    bassOsc.start(time);
+    bassOsc.stop(time + 0.3);
+  }
+
+  private playArpNote(time: number, freq: number): void {
+    if (!this.ctx) return;
+    const arpOsc = this.ctx.createOscillator();
+    const arpGain = this.ctx.createGain();
+
+    arpOsc.type = 'sine';
+    arpOsc.frequency.setValueAtTime(freq, time);
+
+    arpGain.gain.setValueAtTime(0.14, time);
+    arpGain.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+
+    arpOsc.connect(arpGain);
+    arpGain.connect(this.ctx.destination);
+    arpOsc.start(time);
+    arpOsc.stop(time + 0.24);
+  }
+
+  private playFlowShimmer(time: number, freq: number): void {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * 3, time);
+    osc.frequency.exponentialRampToValueAtTime(freq * 2.5, time + 0.3);
+
+    gain.gain.setValueAtTime(0.08, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.32);
+  }
+
+  public playGoodTurn(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
@@ -190,38 +228,19 @@ class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(160, now);
-    osc.frequency.exponentialRampToValueAtTime(420, now + 0.08);
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.06);
 
-    gain.gain.setValueAtTime(0.24, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
-
     osc.start(now);
-    osc.stop(now + 0.14);
+    osc.stop(now + 0.08);
   }
 
-  public playShatter(): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    const subOsc = this.ctx.createOscillator();
-    const subGain = this.ctx.createGain();
-    subOsc.type = 'sawtooth';
-    subOsc.frequency.setValueAtTime(160, now);
-    subOsc.frequency.exponentialRampToValueAtTime(40, now + 0.22);
-    subGain.gain.setValueAtTime(0.35, now);
-    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-    subOsc.connect(subGain);
-    subGain.connect(this.ctx.destination);
-    subOsc.start(now);
-    subOsc.stop(now + 0.26);
-  }
-
-  public playMeteorIgnite(): void {
+  public playMissTurn(): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
@@ -229,61 +248,45 @@ class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(120, now);
-    osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+    osc.frequency.setValueAtTime(240, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.35);
 
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.5);
-  }
-
-  public playGem(comboStreak: number): void {
-    if (!this.ensureContext() || !this.ctx) return;
-    const now = this.ctx.currentTime;
-
-    const pitchIndex = (comboStreak - 1) % this.pianoNotes.length;
-    const freq = this.pianoNotes[pitchIndex] * 1.5;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-    osc.frequency.exponentialRampToValueAtTime(freq * 1.4, now + 0.08);
-
-    gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
-
     osc.start(now);
-    osc.stop(now + 0.3);
+    osc.stop(now + 0.36);
   }
 
-  public playCrash(): void {
-    this.stopCatMusic();
+  public playMilestoneFlourish(_tier: number): void {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
-    const subOsc = this.ctx.createOscillator();
-    const subGain = this.ctx.createGain();
-    subOsc.type = 'sawtooth';
-    subOsc.frequency.setValueAtTime(140, now);
-    subOsc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
+    // Upward pentatonic arpeggio chord
+    const chord = [523.25, 659.25, 783.99, 1046.50];
+    chord.forEach((f, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
 
-    subGain.gain.setValueAtTime(0.45, now);
-    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      const startTime = now + i * 0.05;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, startTime);
 
-    subOsc.connect(subGain);
-    subGain.connect(this.ctx.destination);
-    subOsc.start(now);
-    subOsc.stop(now + 0.45);
+      gain.gain.setValueAtTime(0.18, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.26);
+    });
+  }
+
+  public toggleMute(): boolean {
+    this.isMuted = !this.isMuted;
+    return this.isMuted;
   }
 }
 

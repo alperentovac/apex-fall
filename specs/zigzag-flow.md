@@ -55,7 +55,7 @@ Build **ZIGZAG FLOW**, a minimalist, fast-paced, highly rhythmic 2.5D isometric 
   - Implement single-tap controls (Touch, Mouse Click, Spacebar) and zero-delay instant restart cycle.
   - Files touched: `src/types.ts`, `src/engine/world.ts`, `src/engine/physics.ts`, `src/main.ts`, `tests/zigzag-flow.test.ts`.
 
-- [ ] Slice 2: Tiered Performance-Driven Procedural Synth Engine -> `verify: npm test (audio tiers) and browser audio check`
+- [x] Slice 2: Tiered Performance-Driven Procedural Synth Engine -> `verify: npm test (audio tiers) and browser audio check`
   - Implement Web Audio synthesizer using pure oscillator and gain nodes (pentatonic note generation, percussion clicks, bass synth, harmonic arps).
   - Implement dynamic tier system (1-9 notes, 10-24 rhythm, 25-49 bass, 50-99 rich melody, 100+ Flow Mode) with smooth degradation on Good turns.
   - Connect corner timing events directly to musical feedback and milestone flourishes.

@@ -1,5 +1,6 @@
 import { GameState, Ball, TurnResult } from './types';
 import { WorldManager, PhysicsEngine, worldToScreen } from './engine/zigzag';
+import { sound } from './engine/audio';
 
 export class Game {
   public canvas: HTMLCanvasElement;
@@ -117,6 +118,8 @@ export class Game {
   }
 
   public handleInput(): TurnResult | null {
+    sound.init();
+
     if (this.state === 'START') {
       this.state = 'PLAYING';
       this.ball.vx = this.physics.baseSpeed;
@@ -136,13 +139,16 @@ export class Game {
       if (result === 'PERFECT') {
         this.combo++;
         this.score += 10 + this.combo * 2;
+        sound.handleTurnEvent('PERFECT', this.combo);
         this.saveBestScores();
       } else if (result === 'GOOD') {
         this.combo = 0;
         this.score += 5;
+        sound.handleTurnEvent('GOOD', 0);
         this.saveBestScores();
       } else {
         // Miss
+        sound.handleTurnEvent('MISS', 0);
         this.saveBestScores();
       }
       return result;

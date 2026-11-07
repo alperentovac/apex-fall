@@ -312,3 +312,66 @@ describe('Single-Tap Controls & Instant Restart Seam', () => {
   });
 });
 
+describe('Combo & Audio Tier Seam', () => {
+  it('correctly calculates audio tiers based on combo streaks', async () => {
+    const { SoundManager } = await import('../src/engine/audio');
+    const audio = new SoundManager();
+
+    expect(audio.getTierForCombo(0)).toBe(0);
+    expect(audio.getTierForCombo(1)).toBe(1);
+    expect(audio.getTierForCombo(9)).toBe(1);
+    expect(audio.getTierForCombo(10)).toBe(2);
+    expect(audio.getTierForCombo(24)).toBe(2);
+    expect(audio.getTierForCombo(25)).toBe(3);
+    expect(audio.getTierForCombo(49)).toBe(3);
+    expect(audio.getTierForCombo(50)).toBe(4);
+    expect(audio.getTierForCombo(99)).toBe(4);
+    expect(audio.getTierForCombo(100)).toBe(5);
+    expect(audio.getTierForCombo(250)).toBe(5);
+  });
+
+  it('smoothly steps down active audio tier by one level on Good turn instead of abrupt cutoff', async () => {
+    const { SoundManager } = await import('../src/engine/audio');
+    const audio = new SoundManager();
+
+    // Player reaches combo 30 (Tier 3)
+    audio.handleTurnEvent('PERFECT', 30);
+    expect(audio.getActiveTier()).toBe(3);
+
+    // Player makes a Good turn: combo resets to 0, tier drops by exactly 1 level (3 -> 2)
+    audio.handleTurnEvent('GOOD', 0);
+    expect(audio.getActiveTier()).toBe(2);
+
+    // Another Good turn: drops from 2 -> 1
+    audio.handleTurnEvent('GOOD', 0);
+    expect(audio.getActiveTier()).toBe(1);
+
+    // Another Good turn: drops from 1 -> 0
+    audio.handleTurnEvent('GOOD', 0);
+    expect(audio.getActiveTier()).toBe(0);
+
+    // Another Good turn: clamped at 0
+    audio.handleTurnEvent('GOOD', 0);
+    expect(audio.getActiveTier()).toBe(0);
+  });
+
+  it('plays pentatonic note on Perfect turn and triggers milestone flourish at tier boundaries', async () => {
+    const { SoundManager } = await import('../src/engine/audio');
+    const audio = new SoundManager();
+
+    let milestoneTriggered = false;
+    audio.onMilestone = () => {
+      milestoneTriggered = true;
+    };
+
+    // Non-milestone perfect
+    audio.handleTurnEvent('PERFECT', 5);
+    expect(milestoneTriggered).toBe(false);
+
+    // Milestone perfect at 10
+    audio.handleTurnEvent('PERFECT', 10);
+    expect(milestoneTriggered).toBe(true);
+  });
+});
+
+
