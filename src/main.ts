@@ -202,8 +202,8 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
-      // Gentle progressive speed scaling based on score
-      const currentSpeed = this.physics.baseSpeed + Math.min(this.score * 0.2, 100);
+      // Dengeli & Aşamalı Hız: 110 px/s başlangıç, viraj başına +0.6 px/s, tavan 195 px/s
+      const currentSpeed = this.physics.calcSpeedForTurn(this.ball.currentSegmentIndex);
       if (this.ball.dir === 'X' && !this.ball.isFalling) {
         this.ball.vx = currentSpeed;
         this.ball.vy = 0;

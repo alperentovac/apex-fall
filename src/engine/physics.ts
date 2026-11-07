@@ -5,7 +5,9 @@ export class PhysicsEngine {
   public rPerfect = 16;
   public rGood = 42;
   public gravity = 1200;
-  public baseSpeed = 115;
+  public baseSpeed = 110;
+  public maxSpeed = 195;
+  public speedIncrementPerTurn = 0.6;
 
   public evaluateTurn(ball: Ball, world: WorldManager): TurnResult {
     const currentSeg = world.segments[ball.currentSegmentIndex];
@@ -32,12 +34,16 @@ export class PhysicsEngine {
     }
   }
 
+  public calcSpeedForTurn(turnIndex: number): number {
+    return Math.min(this.baseSpeed + turnIndex * this.speedIncrementPerTurn, this.maxSpeed);
+  }
+
   private executeTurn(ball: Ball, world: WorldManager): void {
     const nextIndex = ball.currentSegmentIndex + 1;
-    world.ensureSegmentsAhead(nextIndex + 20, Math.hypot(ball.vx, ball.vy) || this.baseSpeed);
+    const speed = this.calcSpeedForTurn(nextIndex);
+    world.ensureSegmentsAhead(nextIndex + 20, speed);
 
     const nextSeg = world.segments[nextIndex];
-    const speed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
 
     if (nextSeg) {
       ball.dir = nextSeg.dir;

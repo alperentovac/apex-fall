@@ -450,7 +450,21 @@ describe('High Score & Persistence Seam', () => {
       });
     }
   });
+
+  it('progressively scales speed smoothly with each turn and strictly stabilizes at maxSpeed cap', () => {
+    const physics = new PhysicsEngine();
+
+    expect(physics.calcSpeedForTurn(0)).toBe(110);
+    expect(physics.calcSpeedForTurn(10)).toBe(116);
+    expect(physics.calcSpeedForTurn(50)).toBe(140);
+    expect(physics.calcSpeedForTurn(100)).toBe(170);
+
+    // Reaching and stabilizing at max speed
+    expect(physics.calcSpeedForTurn(150)).toBe(195);
+    expect(physics.calcSpeedForTurn(300)).toBe(195);
+  });
 });
+
 
 
 
