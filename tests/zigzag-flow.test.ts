@@ -455,13 +455,14 @@ describe('High Score & Persistence Seam', () => {
     const physics = new PhysicsEngine();
 
     expect(physics.calcSpeedForTurn(0)).toBe(110);
-    expect(physics.calcSpeedForTurn(50)).toBe(160); // 110 + 50 * 1.0
-    expect(physics.calcSpeedForTurn(100)).toBe(210); // 110 + 100 * 1.0
-    expect(physics.calcSpeedForTurn(200)).toBe(310); // 110 + 200 * 1.0
+    expect(physics.calcSpeedForTurn(10)).toBe(160); // 110 + 10 * 5.0
+    expect(physics.calcSpeedForTurn(20)).toBe(210); // 110 + 20 * 5.0
+    expect(physics.calcSpeedForTurn(50)).toBe(360); // 110 + 50 * 5.0
 
-    // Reaching and stabilizing at 600 px/s max cap
+    // Reaching and stabilizing at 600 px/s max cap (at turn 98)
+    expect(physics.calcSpeedForTurn(98)).toBe(600);
+    expect(physics.calcSpeedForTurn(200)).toBe(600);
     expect(physics.calcSpeedForTurn(500)).toBe(600);
-    expect(physics.calcSpeedForTurn(700)).toBe(600);
 
     // Dynamic tolerances scale with speed
     const baseTol = physics.getTolerances(110);
