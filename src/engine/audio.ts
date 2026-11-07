@@ -5,6 +5,7 @@ export class SoundManager {
   public isMuted = false;
   private initialized = false;
   private activeTier = 0;
+  private bgMusic: HTMLAudioElement | null = null;
 
   public onMilestone?: (combo: number, tier: number) => void;
 
@@ -36,11 +37,32 @@ export class SoundManager {
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           this.ctx = new AudioCtx();
-          this.initialized = true;
         }
+
+        if (typeof Audio !== 'undefined' && !this.bgMusic) {
+          this.bgMusic = new Audio('/music.mp3');
+          this.bgMusic.loop = true;
+          this.bgMusic.volume = 0.45;
+        }
+
+        this.initialized = true;
       }
     } catch {
-      // AudioContext unavailable or blocked
+      // Audio unavailable or blocked until user gesture
+    }
+  }
+
+  public playMusic(): void {
+    if (this.isMuted) return;
+    this.init();
+    if (this.bgMusic && this.bgMusic.paused) {
+      this.bgMusic.play().catch(() => {});
+    }
+  }
+
+  public pauseMusic(): void {
+    if (this.bgMusic && !this.bgMusic.paused) {
+      this.bgMusic.pause();
     }
   }
 
@@ -97,7 +119,6 @@ export class SoundManager {
     const noteIdx = (combo - 1) % this.pentatonicFrequencies.length;
     const freq = this.pentatonicFrequencies[noteIdx];
 
-    // Primary bell/piano tone
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -113,7 +134,7 @@ export class SoundManager {
     osc.start(now);
     osc.stop(now + 0.35);
 
-    // Tier 1+: Sparkle harmonic overtone (octave up)
+    // Tier 1+: Sparkle harmonic overtone
     if (tier >= 1) {
       const harm = this.ctx.createOscillator();
       const harmGain = this.ctx.createGain();
@@ -127,25 +148,10 @@ export class SoundManager {
       harm.stop(now + 0.16);
     }
 
-    // Tier 2+: Percussive hi-hat / click pulse
-    if (tier >= 2) {
-      this.playPercussionPulse(now);
-    }
-
-    // Tier 3+: Deep driving bass synth
-    if (tier >= 3) {
-      this.playBassPulse(now, freq);
-    }
-
-    // Tier 4+: Rich harmonic arp note (+ fifth)
-    if (tier >= 4) {
-      this.playArpNote(now + 0.05, freq * 1.5);
-    }
-
-    // Tier 5: Full Flow Mode shimmer flourish
-    if (tier >= 5) {
-      this.playFlowShimmer(now, freq);
-    }
+    if (tier >= 2) this.playPercussionPulse(now);
+    if (tier >= 3) this.playBassPulse(now, freq);
+    if (tier >= 4) this.playArpNote(now + 0.05, freq * 1.5);
+    if (tier >= 5) this.playFlowShimmer(now, freq);
   }
 
   private playPercussionPulse(time: number): void {
@@ -171,7 +177,6 @@ export class SoundManager {
     const bassOsc = this.ctx.createOscillator();
     const bassGain = this.ctx.createGain();
 
-    // 2 octaves below
     const bassFreq = Math.max(55, primaryFreq / 4);
     bassOsc.type = 'triangle';
     bassOsc.frequency.setValueAtTime(bassFreq, time);
@@ -286,7 +291,6 @@ export class SoundManager {
     if (!this.ensureContext() || !this.ctx) return;
     const now = this.ctx.currentTime;
 
-    // Upward pentatonic arpeggio chord
     const chord = [523.25, 659.25, 783.99, 1046.50];
     chord.forEach((f, i) => {
       const osc = this.ctx!.createOscillator();
@@ -308,6 +312,11 @@ export class SoundManager {
 
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.pauseMusic();
+    } else {
+      this.playMusic();
+    }
     return this.isMuted;
   }
 }

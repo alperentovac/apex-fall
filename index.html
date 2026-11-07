@@ -6,7 +6,7 @@
   <title>ZIGZAG FLOW — Minimalist Rhythmic 2.5D Arcade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -21,7 +21,7 @@
       height: 100%;
       overflow: hidden;
       background: #05070d;
-      font-family: 'Rajdhani', sans-serif;
+      font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -56,11 +56,185 @@
       height: 100%;
       cursor: pointer;
     }
+
+    /* Floating Top-Right Action Buttons */
+    .top-controls {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 10px;
+      z-index: 20;
+    }
+    .btn-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(14, 23, 42, 0.82);
+      border: 1.5px solid rgba(0, 240, 255, 0.35);
+      border-radius: 12px;
+      color: #00f0ff;
+      font-size: 19px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      transition: all 0.15s ease;
+    }
+    .btn-icon:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      transform: scale(1.05);
+    }
+    .btn-icon:active {
+      transform: scale(0.92);
+    }
+
+    /* Pause & Home Modal */
+    #pause-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 24, 0.88);
+      backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      padding: 24px;
+    }
+    .modal-box {
+      background: rgba(16, 27, 50, 0.95);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      border-radius: 24px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: #00f0ff;
+      letter-spacing: 1px;
+    }
+    .modal-stats {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(9, 13, 24, 0.6);
+      border-radius: 14px;
+      padding: 12px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .modal-stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
+    .stat-val {
+      font-family: 'Orbitron', monospace;
+      font-size: 24px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+    .btn-modal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 14px;
+      font-family: 'Orbitron', monospace;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+    .btn-resume {
+      background: linear-gradient(135deg, #00f0ff, #0284c7);
+      color: #04101e;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+    .btn-resume:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 26px rgba(0, 240, 255, 0.6);
+    }
+    .btn-replay {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+    }
+    .btn-replay:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #ffffff;
+    }
+    .btn-mute-toggle {
+      background: rgba(14, 23, 42, 0.7);
+      color: #94a3b8;
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      font-size: 13px;
+    }
+    .btn-modal:active {
+      transform: scale(0.96);
+    }
   </style>
 </head>
 <body>
   <div id="game-container">
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Floating Top-Right HUD Controls -->
+    <div class="top-controls">
+      <button id="btn-mute" class="btn-icon" title="Müziği Aç / Kapat">🔊</button>
+      <button id="btn-home" class="btn-icon" title="Durdur / Menü">🏠</button>
+    </div>
+
+    <!-- Pause & Home Modal Dialog -->
+    <div id="pause-modal">
+      <div class="modal-box">
+        <div class="modal-title">OYUN DURAKLATILDI</div>
+        <div class="modal-stats">
+          <div class="modal-stat-item">
+            <span class="stat-label">SKOR</span>
+            <span class="stat-val" id="pause-score">0</span>
+          </div>
+          <div class="modal-stat-item">
+            <span class="stat-label">EN İYİ</span>
+            <span class="stat-val" id="pause-best" style="color: #38bdf8;">0</span>
+          </div>
+        </div>
+
+        <button id="btn-resume" class="btn-modal btn-resume">
+          <span>▶️</span> DEVAM ET
+        </button>
+
+        <button id="btn-replay" class="btn-modal btn-replay">
+          <span>🔄</span> TEKRAR OYNA
+        </button>
+
+        <button id="modal-btn-mute" class="btn-modal btn-mute-toggle">
+          <span>🔊</span> MÜZİK: AÇIK
+        </button>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>

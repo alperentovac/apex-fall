@@ -1,4 +1,4 @@
-export type GameState = 'START' | 'PLAYING' | 'GAME_OVER';
+export type GameState = 'START' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
 
 export type Direction = 'X' | 'Y';
 

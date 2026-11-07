@@ -40,6 +40,7 @@ export class Game {
     this.loadBestScores();
     this.setupResize();
     this.setupInput();
+    this.setupUIButtons();
   }
 
   public createInitialBall(): Ball {
@@ -108,6 +109,7 @@ export class Game {
 
   private setupInput(): void {
     const handleAction = () => {
+      if (this.state === 'PAUSED') return;
       this.handleInput();
     };
 
@@ -121,13 +123,101 @@ export class Game {
         if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
           e.preventDefault();
           handleAction();
+        } else if (e.code === 'KeyP' || e.code === 'Escape') {
+          e.preventDefault();
+          if (this.state === 'PLAYING') {
+            this.pauseGame();
+          } else if (this.state === 'PAUSED') {
+            this.resumeGame();
+          }
         }
       });
     }
   }
 
+  private setupUIButtons(): void {
+    if (typeof document === 'undefined') return;
+
+    const btnHome = document.getElementById('btn-home');
+    const btnMute = document.getElementById('btn-mute');
+    const btnResume = document.getElementById('btn-resume');
+    const btnReplay = document.getElementById('btn-replay');
+
+    btnHome?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.state === 'PLAYING') {
+        this.pauseGame();
+      } else if (this.state === 'PAUSED') {
+        this.resumeGame();
+      }
+    });
+
+    btnMute?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const muted = sound.toggleMute();
+      if (btnMute) {
+        btnMute.innerHTML = muted ? '🔇' : '🔊';
+        btnMute.title = muted ? 'Müziği Aç' : 'Müziği Kapat';
+      }
+      const modalMute = document.getElementById('modal-btn-mute');
+      if (modalMute) {
+        modalMute.innerHTML = muted ? '🔇 MÜZİK: KAPALI' : '🔊 MÜZİK: AÇIK';
+      }
+    });
+
+    const modalMute = document.getElementById('modal-btn-mute');
+    modalMute?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const muted = sound.toggleMute();
+      if (btnMute) btnMute.innerHTML = muted ? '🔇' : '🔊';
+      if (modalMute) modalMute.innerHTML = muted ? '🔇 MÜZİK: KAPALI' : '🔊 MÜZİK: AÇIK';
+    });
+
+    btnResume?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.resumeGame();
+    });
+
+    btnReplay?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.restartGame();
+      this.state = 'PLAYING';
+      this.updatePauseModal(false);
+      sound.playMusic();
+    });
+  }
+
+  public pauseGame(): void {
+    if (this.state === 'PLAYING') {
+      this.state = 'PAUSED';
+      sound.pauseMusic();
+      this.updatePauseModal(true);
+    }
+  }
+
+  public resumeGame(): void {
+    if (this.state === 'PAUSED') {
+      this.state = 'PLAYING';
+      sound.playMusic();
+      this.updatePauseModal(false);
+    }
+  }
+
+  private updatePauseModal(show: boolean): void {
+    if (typeof document === 'undefined') return;
+    const modal = document.getElementById('pause-modal');
+    if (modal) {
+      modal.style.display = show ? 'flex' : 'none';
+      const scoreSpan = document.getElementById('pause-score');
+      const bestSpan = document.getElementById('pause-best');
+      if (scoreSpan) scoreSpan.innerText = this.score.toString();
+      if (bestSpan) bestSpan.innerText = this.bestScore.toString();
+    }
+  }
+
   public handleInput(): TurnResult | null {
     sound.init();
+    sound.playMusic();
 
     if (this.state === 'START') {
       this.state = 'PLAYING';
@@ -140,6 +230,7 @@ export class Game {
       // Instant zero-delay restart
       this.restartGame();
       this.state = 'PLAYING';
+      sound.playMusic();
       return null;
     }
 
@@ -147,13 +238,15 @@ export class Game {
       const result = this.physics.evaluateTurn(this.ball, this.world);
       if (result === 'PERFECT') {
         this.combo++;
-        this.score += 10 + this.combo * 2;
+        // Exactly 1 score per turn
+        this.score += 1;
         this.particles.spawnCornerSparks(this.ball, 14);
         sound.handleTurnEvent('PERFECT', this.combo);
         this.saveBestScores();
       } else if (result === 'GOOD') {
         this.combo = 0;
-        this.score += 5;
+        // Exactly 1 score per turn
+        this.score += 1;
         sound.handleTurnEvent('GOOD', 0);
         this.saveBestScores();
       } else {
@@ -176,6 +269,7 @@ export class Game {
     this.score = 0;
     this.combo = 0;
     this.ballTrail = [];
+    this.updatePauseModal(false);
   }
 
   public start(): void {
@@ -202,7 +296,7 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
-      // Dengeli & Aşamalı Hız: 110 px/s başlangıç, viraj başına +0.6 px/s, tavan 195 px/s
+      // Dengeli & Aşamalı Hız: 110 px/s başlangıç, viraj başına +0.8 px/s, tavan 400 px/s
       const currentSpeed = this.physics.calcSpeedForTurn(this.ball.currentSegmentIndex);
       if (this.ball.dir === 'X' && !this.ball.isFalling) {
         this.ball.vx = currentSpeed;
@@ -220,7 +314,7 @@ export class Game {
         const distToGem = Math.hypot(this.ball.x - currSeg.gemPos.x, this.ball.y - currSeg.gemPos.y);
         if (distToGem < 26) {
           currSeg.gemCollected = true;
-          this.score += 25;
+          this.score += 5; // bonus puan
           this.particles.spawnCornerSparks(currSeg.gemPos, 12);
           sound.playGemChime();
           this.saveBestScores();
@@ -241,7 +335,7 @@ export class Game {
         this.saveBestScores();
       }
 
-      // Smooth framerate-independent camera tracking (60 FPS / 120 FPS adaptive)
+      // Smooth framerate-independent camera tracking
       this.juice.update(dt, this.ball);
     }
 

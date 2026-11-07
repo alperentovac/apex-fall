@@ -17,7 +17,7 @@ export class GameRenderer {
     score: number,
     combo: number,
     bestScore: number,
-    bestCombo: number
+    _bestCombo: number
   ): void {
     this.pulsePhase += 0.05;
 
@@ -54,8 +54,8 @@ export class GameRenderer {
     // 5. Glowing Ball Orb
     this.drawBall(ctx, viewport, camera, ball);
 
-    // 6. Minimalist HUD & State Overlay
-    this.drawHUD(ctx, viewport, state, score, combo, bestScore, bestCombo);
+    // 6. Minimalist HUD & State Overlay (Sağ üst: SCORE, Sol üst: BEST)
+    this.drawHUD(ctx, viewport, state, score, combo, bestScore, _bestCombo);
   }
 
   private drawPath(
@@ -124,7 +124,7 @@ export class GameRenderer {
       ctx.fillStyle = '#141e34';
       ctx.fill();
 
-      // Top walking surface with high contrast
+      // Top walking surface
       ctx.beginPath();
       ctx.moveTo(t0.x, t0.y);
       ctx.lineTo(t1.x, t1.y);
@@ -135,7 +135,6 @@ export class GameRenderer {
       const isCurrent = i === ball.currentSegmentIndex;
       const pattern = seg.patternType || 'STANDARD';
 
-      // Dynamic aesthetic color styling per procedural pattern type
       if (pattern === 'RAPID_BURST') {
         ctx.fillStyle = isCurrent ? '#381e54' : '#26153b';
         ctx.fill();
@@ -159,7 +158,6 @@ export class GameRenderer {
       const beaconColor = pattern === 'RAPID_BURST' ? '#f43f5e' : pattern === 'HIGHWAY' ? '#2dd4bf' : '#00f0ff';
 
       if (isTargetCorner) {
-        // Concentric animated beacon on the active turn target
         const pulseSize = 10 + Math.sin(this.pulsePhase * 2) * 3;
         ctx.beginPath();
         ctx.arc(cornerScreen.x, cornerScreen.y, pulseSize, 0, Math.PI * 2);
@@ -199,7 +197,6 @@ export class GameRenderer {
       const floatZ = 10 + Math.sin(this.pulsePhase * 3 + i) * 3;
       const s = worldToScreen({ x: seg.gemPos.x, y: seg.gemPos.y, z: floatZ }, camera, viewport);
 
-      // Gem outer radiance glow
       const gemGrad = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 14);
       gemGrad.addColorStop(0, '#ffe600');
       gemGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.6)');
@@ -209,7 +206,6 @@ export class GameRenderer {
       ctx.arc(s.x, s.y, 14, 0, Math.PI * 2);
       ctx.fill();
 
-      // Sharp glowing diamond octahedron
       const dSize = 6;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
@@ -254,7 +250,6 @@ export class GameRenderer {
   ): void {
     const screenPos = worldToScreen(ball, camera, viewport);
 
-    // Multi-stage outer glow aura
     const outerHalo = ctx.createRadialGradient(
       screenPos.x,
       screenPos.y,
@@ -273,7 +268,6 @@ export class GameRenderer {
     ctx.fillStyle = outerHalo;
     ctx.fill();
 
-    // Solid core
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, ball.radius, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
@@ -287,85 +281,87 @@ export class GameRenderer {
     score: number,
     combo: number,
     bestScore: number,
-    bestCombo: number
+    _bestCombo: number
   ): void {
     ctx.save();
 
     // Top HUD Bar background container for high readability
-    ctx.fillStyle = 'rgba(9, 13, 24, 0.7)';
-    ctx.fillRect(0, 0, viewport.width, 68);
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+    ctx.fillStyle = 'rgba(9, 13, 24, 0.75)';
+    ctx.fillRect(0, 0, viewport.width, 76);
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, 68);
-    ctx.lineTo(viewport.width, 68);
+    ctx.moveTo(0, 76);
+    ctx.lineTo(viewport.width, 76);
     ctx.stroke();
 
-    // 1. Top-Left: Score
+    // 1. Sol Üst: EN İYİ SKOR (BEST)
     ctx.textAlign = 'left';
-    ctx.font = '800 11px "Orbitron", monospace';
+    ctx.font = '700 13px "Rajdhani", sans-serif';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText('SCORE', 20, 25);
+    ctx.fillText('EN İYİ', 22, 28);
 
-    ctx.font = '900 24px "Orbitron", monospace';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(score.toString(), 20, 52);
+    ctx.font = '900 28px "Orbitron", monospace';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`${bestScore}`, 22, 58);
 
-    // 2. Top-Center: Perfect Combo
+    // 2. Orta: KOMBO (Varsa)
     if (combo > 0) {
       ctx.textAlign = 'center';
-      ctx.font = '800 11px "Orbitron", monospace';
+      ctx.font = '700 13px "Rajdhani", sans-serif';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText('PERFECT COMBO', viewport.width / 2, 25);
+      ctx.fillText('KOMBO', viewport.width / 2, 28);
 
-      ctx.font = '900 26px "Orbitron", monospace';
+      ctx.font = '900 28px "Orbitron", monospace';
       ctx.fillStyle = combo >= 50 ? '#00f0ff' : '#ffe600';
-      ctx.fillText(`×${combo}`, viewport.width / 2, 53);
+      ctx.fillText(`×${combo}`, viewport.width / 2, 58);
     }
 
-    // 3. Top-Right: Best Score & Best Combo
+    // 3. SAĞ ÜST: SKOR (Kullanıcı talebi: Score sağ üstte tek tek artsın)
+    // We leave 95px on the far right for the Home & Mute buttons in HTML overlay
+    const scoreRightX = viewport.width - 110;
     ctx.textAlign = 'right';
-    ctx.font = '800 11px "Orbitron", monospace';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('BEST', viewport.width - 20, 25);
+    ctx.font = '700 13px "Rajdhani", sans-serif';
+    ctx.fillStyle = '#00f0ff';
+    ctx.fillText('SKOR', scoreRightX, 28);
 
-    ctx.font = '900 22px "Orbitron", monospace';
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`${bestScore} (×${bestCombo})`, viewport.width - 20, 52);
+    ctx.font = '900 32px "Orbitron", monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(score.toString(), scoreRightX, 60);
 
     // State overlays
     if (state === 'START') {
-      ctx.fillStyle = 'rgba(9, 13, 24, 0.72)';
+      ctx.fillStyle = 'rgba(9, 13, 24, 0.75)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
 
       ctx.textAlign = 'center';
-      ctx.font = '900 32px "Orbitron", monospace';
+      ctx.font = '900 34px "Orbitron", monospace';
       ctx.fillStyle = '#00f0ff';
-      ctx.fillText('ZIGZAG FLOW', viewport.width / 2, viewport.height / 2 - 34);
+      ctx.fillText('ZIGZAG FLOW', viewport.width / 2, viewport.height / 2 - 40);
 
-      ctx.font = '700 14px "Orbitron", monospace';
+      ctx.font = '700 16px "Orbitron", monospace';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('DOKUN VEYA BOŞLUK TUŞUNA BAS', viewport.width / 2, viewport.height / 2 + 16);
+      ctx.fillText('BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 15);
 
-      ctx.font = '600 13px "Rajdhani", sans-serif';
+      ctx.font = '600 15px "Rajdhani", sans-serif';
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText('KÖŞELERDE DÖN • AKIŞI YAKALA', viewport.width / 2, viewport.height / 2 + 42);
+      ctx.fillText('HER KÖŞEDE DÖNÜŞ +1 PUAN', viewport.width / 2, viewport.height / 2 + 45);
     } else if (state === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(9, 13, 24, 0.82)';
+      ctx.fillStyle = 'rgba(9, 13, 24, 0.85)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
 
       ctx.textAlign = 'center';
-      ctx.font = '900 28px "Orbitron", monospace';
+      ctx.font = '900 30px "Orbitron", monospace';
       ctx.fillStyle = '#ff0055';
-      ctx.fillText('DÜŞÜŞ ALGILANDI', viewport.width / 2, viewport.height / 2 - 45);
+      ctx.fillText('DÜŞÜŞ ALGILANDI', viewport.width / 2, viewport.height / 2 - 50);
 
-      ctx.font = '800 16px "Orbitron", monospace';
+      ctx.font = '900 24px "Orbitron", monospace';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`SKOR ${score}  |  EN İYİ ${bestScore}`, viewport.width / 2, viewport.height / 2);
+      ctx.fillText(`SKOR: ${score}   |   EN İYİ: ${bestScore}`, viewport.width / 2, viewport.height / 2);
 
-      ctx.font = '700 13px "Orbitron", monospace';
+      ctx.font = '700 15px "Orbitron", monospace';
       ctx.fillStyle = '#00f0ff';
-      ctx.fillText('YENİDEN BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 48);
+      ctx.fillText('YENİDEN BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 55);
     }
 
     ctx.restore();

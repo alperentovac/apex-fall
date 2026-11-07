@@ -525,6 +525,107 @@ describe('Procedural Variety, Rapid Bursts & Gems Seam', () => {
   });
 });
 
+describe('Pause, Single-Point Scoring & Audio Controls Seam', () => {
+  it('increments score by exactly 1 per successful turn', async () => {
+    const { Game } = await import('../src/main');
+    const mockCanvas = {
+      getContext: () => ({
+        resetTransform: () => {},
+        scale: () => {},
+        fillRect: () => {},
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        closePath: () => {},
+        fill: () => {},
+        stroke: () => {},
+        arc: () => {},
+        save: () => {},
+        restore: () => {},
+        fillText: () => {},
+        createRadialGradient: () => ({
+          addColorStop: () => {}
+        })
+      }),
+      addEventListener: () => {},
+      parentElement: null,
+      width: 400,
+      height: 600
+    } as unknown as HTMLCanvasElement;
+
+    const game = new Game(mockCanvas);
+    game.state = 'PLAYING';
+    game.score = 0;
+
+    // Simulate perfect turn
+    game.ball.x = 260; // right on corner
+    game.handleInput();
+    expect(game.score).toBe(1);
+
+    // Simulate next turn
+    game.ball.y = game.world.segments[1].end.y;
+    game.handleInput();
+    expect(game.score).toBe(2);
+  });
+
+  it('pauses and resumes the game without advancing physics while paused', async () => {
+    const { Game } = await import('../src/main');
+    const mockCanvas = {
+      getContext: () => ({
+        resetTransform: () => {},
+        scale: () => {},
+        fillRect: () => {},
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        closePath: () => {},
+        fill: () => {},
+        stroke: () => {},
+        arc: () => {},
+        save: () => {},
+        restore: () => {},
+        fillText: () => {},
+        createRadialGradient: () => ({
+          addColorStop: () => {}
+        })
+      }),
+      addEventListener: () => {},
+      parentElement: null,
+      width: 400,
+      height: 600
+    } as unknown as HTMLCanvasElement;
+
+    const game = new Game(mockCanvas);
+    game.state = 'PLAYING';
+
+    const startX = game.ball.x;
+    game.pauseGame();
+    expect(game.state).toBe('PAUSED');
+
+    // While paused, update must freeze ball movement
+    game.update(0.1);
+    expect(game.ball.x).toBe(startX);
+
+    game.resumeGame();
+    expect(game.state).toBe('PLAYING');
+
+    game.update(0.1);
+    expect(game.ball.x).toBeGreaterThan(startX);
+  });
+
+  it('supports background music toggling via sound manager', async () => {
+    const { SoundManager } = await import('../src/engine/audio');
+    const audio = new SoundManager();
+
+    expect(audio.isMuted).toBe(false);
+    audio.toggleMute();
+    expect(audio.isMuted).toBe(true);
+    audio.toggleMute();
+    expect(audio.isMuted).toBe(false);
+  });
+});
+
+
 
 
 
