@@ -2,12 +2,26 @@ import { Ball, TurnResult } from '../types';
 import { WorldManager } from './world';
 
 export class PhysicsEngine {
+  public baseSpeed = 110;
+  public maxSpeed = 400;
+  public speedIncrementPerTurn = 0.8;
+  public gravity = 1200;
+
+  // Base tolerances (scale dynamically with speed up to 24px and 60px)
   public rPerfect = 16;
   public rGood = 42;
-  public gravity = 1200;
-  public baseSpeed = 110;
-  public maxSpeed = 195;
-  public speedIncrementPerTurn = 0.6;
+
+  public getTolerances(speed: number): { rPerfect: number; rGood: number } {
+    const ratio = Math.min(1, Math.max(0, (speed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed)));
+    return {
+      rPerfect: 16 + ratio * 8,
+      rGood: 42 + ratio * 18
+    };
+  }
+
+  public calcSpeedForTurn(turnIndex: number): number {
+    return Math.min(this.baseSpeed + turnIndex * this.speedIncrementPerTurn, this.maxSpeed);
+  }
 
   public evaluateTurn(ball: Ball, world: WorldManager): TurnResult {
     const currentSeg = world.segments[ball.currentSegmentIndex];
@@ -17,13 +31,16 @@ export class PhysicsEngine {
       return 'MISS';
     }
 
+    const currentSpeed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
+    const { rPerfect, rGood } = this.getTolerances(currentSpeed);
+
     const corner = currentSeg.end;
     const distToCorner = Math.hypot(ball.x - corner.x, ball.y - corner.y);
 
-    if (distToCorner <= this.rPerfect) {
+    if (distToCorner <= rPerfect) {
       this.executeTurn(ball, world);
       return 'PERFECT';
-    } else if (distToCorner <= this.rGood) {
+    } else if (distToCorner <= rGood) {
       this.executeTurn(ball, world);
       return 'GOOD';
     } else {
@@ -34,14 +51,10 @@ export class PhysicsEngine {
     }
   }
 
-  public calcSpeedForTurn(turnIndex: number): number {
-    return Math.min(this.baseSpeed + turnIndex * this.speedIncrementPerTurn, this.maxSpeed);
-  }
-
   private executeTurn(ball: Ball, world: WorldManager): void {
     const nextIndex = ball.currentSegmentIndex + 1;
     const speed = this.calcSpeedForTurn(nextIndex);
-    world.ensureSegmentsAhead(nextIndex + 20, speed);
+    world.ensureSegmentsAhead(nextIndex + 25, speed);
 
     const nextSeg = world.segments[nextIndex];
 
@@ -86,11 +99,15 @@ export class PhysicsEngine {
       return;
     }
 
-    // Smoothly guide lateral position towards lane centerline so turning doesn't slide off
+    const currentSpeed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
+    const speedRatio = Math.min(1, Math.max(0, (currentSpeed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed)));
+
+    // Adaptive lane centering: snappier centering at high speeds
+    const centeringSpeed = 6 + speedRatio * 4;
     if (currSeg.dir === 'X') {
-      ball.y += (currSeg.end.y - ball.y) * (1 - Math.exp(-6 * stepDt));
+      ball.y += (currSeg.end.y - ball.y) * (1 - Math.exp(-centeringSpeed * stepDt));
     } else {
-      ball.x += (currSeg.end.x - ball.x) * (1 - Math.exp(-6 * stepDt));
+      ball.x += (currSeg.end.x - ball.x) * (1 - Math.exp(-centeringSpeed * stepDt));
     }
 
     ball.x += ball.vx * stepDt;
@@ -107,7 +124,10 @@ export class PhysicsEngine {
       } else {
         // At corner junction zone, junction platform is wider to absorb incoming turns
         const isNearStartCorner = ball.x - currSeg.start.x < currSeg.tileWidth;
-        const allowedLateral = isNearStartCorner ? currSeg.tileWidth * 0.95 : halfTile + 4;
+        const allowedLateral = isNearStartCorner
+          ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
+          : halfTile + 4 + speedRatio * 6;
+
         if (Math.abs(ball.y - currSeg.end.y) > allowedLateral) {
           ball.isFalling = true;
           ball.vz = -100;
@@ -121,7 +141,10 @@ export class PhysicsEngine {
         ball.z += ball.vz * stepDt;
       } else {
         const isNearStartCorner = ball.y - currSeg.start.y < currSeg.tileWidth;
-        const allowedLateral = isNearStartCorner ? currSeg.tileWidth * 0.95 : halfTile + 4;
+        const allowedLateral = isNearStartCorner
+          ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
+          : halfTile + 4 + speedRatio * 6;
+
         if (Math.abs(ball.x - currSeg.end.x) > allowedLateral) {
           ball.isFalling = true;
           ball.vz = -100;
