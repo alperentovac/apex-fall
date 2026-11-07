@@ -77,8 +77,34 @@ export class PhysicsEngine {
         ball.vy = speed;
       }
       ball.currentSegmentIndex = nextIndex;
+
+      // Platform alignment & lateral boundary protection:
+      // When turning into nextSeg, clamp lateral position to stay safely on the new corridor.
+      const isRapidBurst = nextSeg.patternType === 'RAPID_BURST';
+      const maxLateralOffset = nextSeg.tileWidth * 0.45;
+
+      if (nextSeg.dir === 'X') {
+        if (isRapidBurst) {
+          ball.y = nextSeg.start.y;
+          ball.x = Math.max(ball.x, nextSeg.start.x);
+        } else {
+          const latDiff = ball.y - nextSeg.start.y;
+          if (Math.abs(latDiff) > maxLateralOffset) {
+            ball.y = nextSeg.start.y + Math.sign(latDiff) * maxLateralOffset;
+          }
+        }
+      } else {
+        if (isRapidBurst) {
+          ball.x = nextSeg.start.x;
+          ball.y = Math.max(ball.y, nextSeg.start.y);
+        } else {
+          const latDiff = ball.x - nextSeg.start.x;
+          if (Math.abs(latDiff) > maxLateralOffset) {
+            ball.x = nextSeg.start.x + Math.sign(latDiff) * maxLateralOffset;
+          }
+        }
+      }
     }
-    // Important: ball.x and ball.y are strictly PRESERVED on turn (no artificial snapping)
   }
 
   public update(dt: number, ball: Ball, world: WorldManager): void {
@@ -112,7 +138,7 @@ export class PhysicsEngine {
     const speedRatio = Math.min(1, Math.max(0, (currentSpeed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed)));
 
     // Adaptive lane centering: snappier centering at high speeds
-    const centeringSpeed = 6 + speedRatio * 4;
+    const centeringSpeed = 8 + speedRatio * 6;
     if (currSeg.dir === 'X') {
       ball.y += (currSeg.end.y - ball.y) * (1 - Math.exp(-centeringSpeed * stepDt));
     } else {
@@ -123,6 +149,7 @@ export class PhysicsEngine {
     ball.y += ball.vy * stepDt;
 
     const halfTile = currSeg.tileWidth / 2;
+    const isRapid = currSeg.patternType === 'RAPID_BURST';
 
     // Check overshoot past segment corner and lateral edge margins
     if (currSeg.dir === 'X') {
@@ -131,11 +158,12 @@ export class PhysicsEngine {
         ball.vz = -100;
         ball.z += ball.vz * stepDt;
       } else {
-        // At corner junction zone, junction platform is wider to absorb incoming turns
-        const isNearStartCorner = ball.x - currSeg.start.x < currSeg.tileWidth;
-        const allowedLateral = isNearStartCorner
-          ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
-          : halfTile + 4 + speedRatio * 6;
+        const isNearStartCorner = ball.x - currSeg.start.x < currSeg.tileWidth * 1.5;
+        const allowedLateral = isRapid
+          ? currSeg.tileWidth * 1.05
+          : (isNearStartCorner
+              ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
+              : halfTile + 8 + speedRatio * 8);
 
         if (Math.abs(ball.y - currSeg.end.y) > allowedLateral) {
           ball.isFalling = true;
@@ -149,10 +177,12 @@ export class PhysicsEngine {
         ball.vz = -100;
         ball.z += ball.vz * stepDt;
       } else {
-        const isNearStartCorner = ball.y - currSeg.start.y < currSeg.tileWidth;
-        const allowedLateral = isNearStartCorner
-          ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
-          : halfTile + 4 + speedRatio * 6;
+        const isNearStartCorner = ball.y - currSeg.start.y < currSeg.tileWidth * 1.5;
+        const allowedLateral = isRapid
+          ? currSeg.tileWidth * 1.05
+          : (isNearStartCorner
+              ? currSeg.tileWidth * (0.95 + speedRatio * 0.15)
+              : halfTile + 8 + speedRatio * 8);
 
         if (Math.abs(ball.x - currSeg.end.x) > allowedLateral) {
           ball.isFalling = true;

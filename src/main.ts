@@ -364,5 +364,6 @@ export class Game {
 // Auto-boot if running in browser
 if (typeof window !== 'undefined' && document.getElementById('gameCanvas')) {
   const game = new Game();
+  (window as unknown as { __game: Game }).__game = game;
   game.start();
 }

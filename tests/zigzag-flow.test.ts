@@ -624,6 +624,98 @@ describe('Pause, Single-Point Scoring & Audio Controls Seam', () => {
   });
 });
 
+describe('Rapid Burst Flow & Stability', () => {
+  it('guarantees ball seamlessly navigates all burst segments without falling', () => {
+    const world = new WorldManager();
+    const physics = new PhysicsEngine();
+
+    world.ensureSegmentsAhead(60, 115);
+
+    const burstStartIdx = world.segments.findIndex((s) => s.patternType === 'RAPID_BURST');
+    expect(burstStartIdx).toBeGreaterThan(0);
+
+    const burstSeg = world.segments[burstStartIdx];
+    expect(burstSeg.length).toBeGreaterThanOrEqual(100);
+
+    const prevSeg = world.segments[burstStartIdx - 1];
+    const ball: Ball = {
+      x: prevSeg.end.x - (prevSeg.dir === 'X' ? 15 : 0),
+      y: prevSeg.end.y - (prevSeg.dir === 'Y' ? 15 : 0),
+      z: 0,
+      vx: prevSeg.dir === 'X' ? 115 : 0,
+      vy: prevSeg.dir === 'Y' ? 115 : 0,
+      vz: 0,
+      dir: prevSeg.dir,
+      radius: 11,
+      currentSegmentIndex: burstStartIdx - 1,
+      isFalling: false,
+      fallTimer: 0
+    };
+
+    const res1 = physics.evaluateTurn(ball, world);
+    expect(['PERFECT', 'GOOD']).toContain(res1);
+    expect(ball.isFalling).toBe(false);
+    expect(ball.currentSegmentIndex).toBe(burstStartIdx);
+
+    for (let f = 0; f < 25; f++) {
+      physics.update(0.016, ball, world);
+      expect(ball.isFalling).toBe(false);
+    }
+  });
+
+  it('plays through an entire multi-turn rapid burst with early and late taps', () => {
+    const world = new WorldManager();
+    const physics = new PhysicsEngine();
+    world.ensureSegmentsAhead(80, 140);
+
+    const burstStartIdx = world.segments.findIndex((s) => s.patternType === 'RAPID_BURST');
+    expect(burstStartIdx).toBeGreaterThan(0);
+
+    let count = 0;
+    while (world.segments[burstStartIdx + count]?.patternType === 'RAPID_BURST') {
+      count++;
+    }
+    expect(count).toBeGreaterThanOrEqual(5);
+
+    const prevSeg = world.segments[burstStartIdx - 1];
+    const ball: Ball = {
+      x: prevSeg.end.x - (prevSeg.dir === 'X' ? 20 : 0),
+      y: prevSeg.end.y - (prevSeg.dir === 'Y' ? 20 : 0),
+      z: 0,
+      vx: prevSeg.dir === 'X' ? 140 : 0,
+      vy: prevSeg.dir === 'Y' ? 140 : 0,
+      vz: 0,
+      dir: prevSeg.dir,
+      radius: 11,
+      currentSegmentIndex: burstStartIdx - 1,
+      isFalling: false,
+      fallTimer: 0
+    };
+
+    for (let i = 0; i < count; i++) {
+      const turnRes = physics.evaluateTurn(ball, world);
+      expect(['PERFECT', 'GOOD']).toContain(turnRes);
+      expect(ball.isFalling).toBe(false);
+      expect(ball.currentSegmentIndex).toBe(burstStartIdx + i);
+
+      const seg = world.segments[burstStartIdx + i];
+      while (true) {
+        const distToCorner = Math.hypot(ball.x - seg.end.x, ball.y - seg.end.y);
+        if (distToCorner <= 35) {
+          break;
+        }
+        physics.update(0.016, ball, world);
+        expect(ball.isFalling).toBe(false);
+        expect(ball.z).toBe(0);
+      }
+    }
+
+    expect(ball.isFalling).toBe(false);
+    expect(ball.z).toBe(0);
+  });
+});
+
+
 
 
 

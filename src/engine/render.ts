@@ -101,6 +101,9 @@ export class GameRenderer {
         b3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y - halfW, z: -blockDepth }, camera, viewport);
       }
 
+      const isCurrent = i === ball.currentSegmentIndex;
+      const pattern = seg.patternType || 'STANDARD';
+
       // 3D Extruded right side face
       ctx.beginPath();
       ctx.moveTo(t2.x, t2.y);
@@ -108,7 +111,7 @@ export class GameRenderer {
       ctx.lineTo(b3.x, b3.y);
       ctx.lineTo(b2.x, b2.y);
       ctx.closePath();
-      ctx.fillStyle = '#0e1628';
+      ctx.fillStyle = pattern === 'RAPID_BURST' ? '#1f0d22' : pattern === 'HIGHWAY' ? '#0b1d28' : '#0e1628';
       ctx.fill();
 
       // 3D Extruded left/front side face
@@ -118,7 +121,7 @@ export class GameRenderer {
       ctx.lineTo(b2.x, b2.y);
       ctx.lineTo(b1.x, b1.y);
       ctx.closePath();
-      ctx.fillStyle = '#141e34';
+      ctx.fillStyle = pattern === 'RAPID_BURST' ? '#2f1334' : pattern === 'HIGHWAY' ? '#102938' : '#141e34';
       ctx.fill();
 
       // Top walking surface
@@ -129,13 +132,10 @@ export class GameRenderer {
       ctx.lineTo(t3.x, t3.y);
       ctx.closePath();
 
-      const isCurrent = i === ball.currentSegmentIndex;
-      const pattern = seg.patternType || 'STANDARD';
-
       if (pattern === 'RAPID_BURST') {
-        ctx.fillStyle = isCurrent ? '#381e54' : '#26153b';
+        ctx.fillStyle = isCurrent ? '#4e1d52' : '#331238';
         ctx.fill();
-        ctx.strokeStyle = isCurrent ? '#f43f5e' : 'rgba(244, 63, 94, 0.5)';
+        ctx.strokeStyle = isCurrent ? '#ff2a6d' : 'rgba(255, 42, 109, 0.7)';
       } else if (pattern === 'HIGHWAY') {
         ctx.fillStyle = isCurrent ? '#163847' : '#102633';
         ctx.fill();

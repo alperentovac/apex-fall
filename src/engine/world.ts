@@ -96,8 +96,8 @@ export class WorldManager {
       if (this.burstRemaining > 0) {
         // Inside a 5-6 rapid turn burst!
         patternType = 'RAPID_BURST';
-        // Compact rhythmic spacing (~0.4s reaction time, feels like rapid piano staccato)
-        length = Math.max(70, Math.round(currentSpeed * 0.44));
+        // Compact rhythmic spacing (~0.65s reaction time, feels fast, punchy and fair)
+        length = Math.max(115, Math.round(currentSpeed * 0.65));
         this.burstRemaining--;
       } else {
         this.turnsSincePattern++;
@@ -111,7 +111,7 @@ export class WorldManager {
             const burstCount = 5 + (this.random() > 0.5 ? 1 : 0);
             this.burstRemaining = burstCount - 1; // 1 used now, rest queued
             this.turnsSincePattern = 0;
-            length = Math.max(70, Math.round(currentSpeed * 0.44));
+            length = Math.max(115, Math.round(currentSpeed * 0.65));
           } else if (roll < 0.55) {
             // Long breathing highway straightaway
             patternType = 'HIGHWAY';
