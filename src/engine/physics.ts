@@ -3,8 +3,8 @@ import { WorldManager } from './world';
 
 export class PhysicsEngine {
   public baseSpeed = 110;
-  public maxSpeed = 400;
-  public speedIncrementPerTurn = 0.8;
+  public maxSpeed = 600;
+  public speedIncrementPerTurn = 1.0;
   public gravity = 1200;
 
   // Base tolerances (scale dynamically with speed up to 24px and 60px)

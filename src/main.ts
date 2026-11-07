@@ -306,7 +306,7 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
-      // Dengeli & Aşamalı Hız: 110 px/s başlangıç, viraj başına +0.8 px/s, tavan 400 px/s
+      // Dengeli & Aşamalı Hız: 110 px/s başlangıç, viraj başına +1.0 px/s, tavan 600 px/s
       const currentSpeed = this.physics.calcSpeedForTurn(this.ball.currentSegmentIndex);
       if (this.ball.dir === 'X' && !this.ball.isFalling) {
         this.ball.vx = currentSpeed;
