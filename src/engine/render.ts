@@ -4,6 +4,14 @@ import { ParticleManager } from './particles';
 
 export class GameRenderer {
   private pulsePhase = 0;
+  private background?: {
+    ctx: CanvasRenderingContext2D; width: number; height: number;
+    pixelWidth: number; gradient: CanvasGradient;
+  };
+
+  public update(dt: number): void {
+    this.pulsePhase = (this.pulsePhase + dt * 3) % (Math.PI * 2);
+  }
 
   public draw(
     ctx: CanvasRenderingContext2D,
@@ -19,24 +27,27 @@ export class GameRenderer {
     bestScore: number,
     _bestCombo: number
   ): void {
-    this.pulsePhase += 0.05;
-
     // 1. Deep Midnight Navy Background (#090D18)
     ctx.fillStyle = '#090D18';
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
     // Subtle ambient background radiance
-    const bgGrad = ctx.createRadialGradient(
-      viewport.width / 2,
-      viewport.height * 0.45,
-      30,
-      viewport.width / 2,
-      viewport.height * 0.45,
-      viewport.height * 0.75
-    );
-    bgGrad.addColorStop(0, 'rgba(16, 29, 58, 0.45)');
-    bgGrad.addColorStop(1, 'rgba(9, 13, 24, 0)');
-    ctx.fillStyle = bgGrad;
+    if (!this.background || this.background.ctx !== ctx ||
+        this.background.width !== viewport.width || this.background.height !== viewport.height ||
+        this.background.pixelWidth !== ctx.canvas.width) {
+      const bgGrad = ctx.createRadialGradient(
+        viewport.width / 2,
+        viewport.height * 0.45,
+        30,
+        viewport.width / 2,
+        viewport.height * 0.45,
+        viewport.height * 0.75
+      );
+      bgGrad.addColorStop(0, 'rgba(16, 29, 58, 0.45)');
+      bgGrad.addColorStop(1, 'rgba(9, 13, 24, 0)');
+      this.background = { ctx, ...viewport, pixelWidth: ctx.canvas.width, gradient: bgGrad };
+    }
+    ctx.fillStyle = this.background.gradient;
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
     // 2. 2.5D Isometric Path with 3D Extruded Blocks & Vivid Contrast
@@ -101,6 +112,12 @@ export class GameRenderer {
         b3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y - halfW, z: -blockDepth }, camera, viewport);
       }
 
+      // Reject offscreen blocks before issuing any canvas paths or fills.
+      if (Math.max(t0.x, t1.x, t2.x, t3.x) < -16 ||
+          Math.min(t0.x, t1.x, t2.x, t3.x) > viewport.width + 16 ||
+          Math.max(b1.y, b2.y, b3.y) < -16 ||
+          Math.min(t0.y, t1.y, t2.y, t3.y) > viewport.height + 16) continue;
+
       const isCurrent = i === ball.currentSegmentIndex;
       const pattern = seg.patternType || 'STANDARD';
 
@@ -149,32 +166,35 @@ export class GameRenderer {
       ctx.lineWidth = isCurrent ? 2.2 : 1.5;
       ctx.stroke();
 
+      if (isCurrent) continue;
       // Corner platform beacon
       const cornerScreen = worldToScreen({ x: seg.end.x, y: seg.end.y, z: 0 }, camera, viewport);
-      const isTargetCorner = isCurrent;
       const beaconColor = pattern === 'RAPID_BURST' ? '#f43f5e' : pattern === 'HIGHWAY' ? '#2dd4bf' : '#00f0ff';
 
-      if (isTargetCorner) {
-        const pulseSize = 10 + Math.sin(this.pulsePhase * 2) * 3;
-        ctx.beginPath();
-        ctx.arc(cornerScreen.x, cornerScreen.y, pulseSize, 0, Math.PI * 2);
-        ctx.fillStyle = pattern === 'RAPID_BURST' ? 'rgba(244, 63, 94, 0.25)' : 'rgba(0, 240, 255, 0.2)';
-        ctx.fill();
-        ctx.strokeStyle = beaconColor;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(cornerScreen.x, cornerScreen.y, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(cornerScreen.x, cornerScreen.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = beaconColor === '#00f0ff' ? 'rgba(0, 240, 255, 0.45)' : beaconColor;
-        ctx.fill();
-      }
+      ctx.beginPath();
+      ctx.arc(cornerScreen.x, cornerScreen.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = beaconColor === '#00f0ff' ? 'rgba(0, 240, 255, 0.45)' : beaconColor;
+      ctx.fill();
     }
+
+    // Paint the active target after all blocks so the next platform cannot hide it.
+    const target = world.segments[ball.currentSegmentIndex];
+    if (!target) return;
+    const corner = worldToScreen(target.end, camera, viewport);
+    if (corner.x < -16 || corner.x > viewport.width + 16 || corner.y < -16 || corner.y > viewport.height + 16) return;
+    const pattern = target.patternType;
+    const pulseSize = 10 + Math.sin(this.pulsePhase * 2) * 3;
+    ctx.beginPath();
+    ctx.arc(corner.x, corner.y, pulseSize, 0, Math.PI * 2);
+    ctx.fillStyle = pattern === 'RAPID_BURST' ? 'rgba(244, 63, 94, 0.25)' : 'rgba(0, 240, 255, 0.2)';
+    ctx.fill();
+    ctx.strokeStyle = pattern === 'RAPID_BURST' ? '#f43f5e' : pattern === 'HIGHWAY' ? '#2dd4bf' : '#00f0ff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(corner.x, corner.y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
   }
 
   private drawTrail(
@@ -192,7 +212,7 @@ export class GameRenderer {
       const scale = 1 - (i / trail.length) * 0.5;
 
       ctx.beginPath();
-      ctx.arc(screenPos.x, screenPos.y, ballRadius * scale * 0.85, 0, Math.PI * 2);
+      ctx.arc(screenPos.x, screenPos.y, ballRadius * camera.zoom * scale * 0.85, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(0, 240, 255, ${t.alpha * 0.45})`;
       ctx.fill();
     }
@@ -205,14 +225,15 @@ export class GameRenderer {
     ball: Ball
   ): void {
     const screenPos = worldToScreen(ball, camera, viewport);
+    const radius = ball.radius * camera.zoom;
 
     const outerHalo = ctx.createRadialGradient(
       screenPos.x,
       screenPos.y,
-      ball.radius * 0.4,
+      radius * 0.4,
       screenPos.x,
       screenPos.y,
-      ball.radius * 3.5
+      radius * 3.5
     );
     outerHalo.addColorStop(0, 'rgba(255, 255, 255, 1)');
     outerHalo.addColorStop(0.25, 'rgba(0, 240, 255, 0.9)');
@@ -220,12 +241,12 @@ export class GameRenderer {
     outerHalo.addColorStop(1, 'rgba(0, 240, 255, 0)');
 
     ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, ball.radius * 3.5, 0, Math.PI * 2);
+    ctx.arc(screenPos.x, screenPos.y, radius * 3.5, 0, Math.PI * 2);
     ctx.fillStyle = outerHalo;
     ctx.fill();
 
     ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, ball.radius, 0, Math.PI * 2);
+    ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
   }
@@ -262,7 +283,7 @@ export class GameRenderer {
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
     ctx.shadowBlur = 10;
-    ctx.fillText(score.toString(), 20, 60);
+    ctx.fillText(score.toString(), 20, 60, Math.max(64, viewport.width / 2 - 56));
     ctx.shadowBlur = 0; // reset shadow
 
     // 2. ORTA: KOMBO (Sadece kombo > 1 iken gösterilir)
@@ -271,12 +292,14 @@ export class GameRenderer {
       ctx.font = '700 11px "Space Grotesk", "Rajdhani", sans-serif';
       ctx.letterSpacing = '1.5px';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText('COMBO', viewport.width / 2, 26);
+      const comboX = viewport.width / 2 - 8;
+      const comboWidth = Math.max(46, viewport.width - 260);
+      ctx.fillText('COMBO', comboX, 26, comboWidth);
 
       ctx.font = '900 28px "Orbitron", monospace';
       ctx.letterSpacing = '1px';
       ctx.fillStyle = combo >= 50 ? '#00f0ff' : '#ffe600';
-      ctx.fillText(`×${combo}`, viewport.width / 2, 58);
+      ctx.fillText(`×${combo}`, comboX, 58, comboWidth);
     }
 
     // SAĞ ÜST: Canvas üzerinde skor YOK (Sağ üstte sadece HTML'deki %50 şeffaf neon Home & Mute butonları var)
@@ -285,6 +308,7 @@ export class GameRenderer {
     if (state === 'START') {
       ctx.fillStyle = 'rgba(9, 13, 24, 0.8)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
+      this.fitOverlay(ctx, viewport);
 
       const logoY = viewport.height / 2 - 80;
       this.drawLogo(ctx, viewport.width / 2, logoY, 68);
@@ -311,6 +335,7 @@ export class GameRenderer {
     } else if (state === 'GAME_OVER') {
       ctx.fillStyle = 'rgba(9, 13, 24, 0.82)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
+      this.fitOverlay(ctx, viewport);
 
       // DÜŞÜŞ ALGILANDI KALDIRILDI!
       ctx.textAlign = 'center';
@@ -376,6 +401,12 @@ export class GameRenderer {
     }
 
     ctx.restore();
+  }
+
+  private fitOverlay(ctx: CanvasRenderingContext2D, viewport: { width: number; height: number }): void {
+    const scale = Math.min(1, (viewport.width - 32) / 360, (viewport.height - 100) / 310);
+    ctx.translate(viewport.width / 2 * (1 - scale), viewport.height / 2 * (1 - scale));
+    ctx.scale(scale, scale);
   }
 
   private drawLogo(

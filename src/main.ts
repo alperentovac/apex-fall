@@ -23,6 +23,9 @@ export class Game {
 
   private lastTime = 0;
   private animationFrameId: number | null = null;
+  private running = false;
+  private lastRenderTime = 0;
+  private viewport = { width: 400, height: 600 };
   private ballTrail: Array<{ x: number; y: number; z: number; alpha: number }> = [];
 
   constructor(canvas?: HTMLCanvasElement) {
@@ -41,6 +44,7 @@ export class Game {
     this.setupResize();
     this.setupInput();
     this.setupUIButtons();
+    this.setupLifecycle();
   }
 
   public createInitialBall(): Ball {
@@ -62,13 +66,11 @@ export class Game {
   private loadBestScores(): void {
     try {
       if (typeof localStorage !== 'undefined') {
-        this.bestScore = parseInt(
-          localStorage.getItem('apex_fall_best_score') || localStorage.getItem('zigzag_best_score') || '0',
-          10
+        this.bestScore = this.parseRecord(
+          localStorage.getItem('apex_fall_best_score') || localStorage.getItem('zigzag_best_score') || '0'
         );
-        this.bestCombo = parseInt(
-          localStorage.getItem('apex_fall_best_combo') || localStorage.getItem('zigzag_best_combo') || '0',
-          10
+        this.bestCombo = this.parseRecord(
+          localStorage.getItem('apex_fall_best_combo') || localStorage.getItem('zigzag_best_combo') || '0'
         );
       }
     } catch {
@@ -77,16 +79,23 @@ export class Game {
     }
   }
 
+  private parseRecord(value: string): number {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
   public saveBestScores(): void {
+    const scoreChanged = this.score > this.bestScore;
+    const comboChanged = this.combo > this.bestCombo;
+    this.bestScore = Math.max(this.bestScore, this.score);
+    this.bestCombo = Math.max(this.bestCombo, this.combo);
     try {
       if (typeof localStorage !== 'undefined') {
-        if (this.score > this.bestScore) {
-          this.bestScore = this.score;
+        if (scoreChanged) {
           localStorage.setItem('apex_fall_best_score', this.bestScore.toString());
           localStorage.setItem('zigzag_best_score', this.bestScore.toString());
         }
-        if (this.combo > this.bestCombo) {
-          this.bestCombo = this.combo;
+        if (comboChanged) {
           localStorage.setItem('apex_fall_best_combo', this.bestCombo.toString());
           localStorage.setItem('zigzag_best_combo', this.bestCombo.toString());
         }
@@ -99,20 +108,51 @@ export class Game {
   private setupResize(): void {
     if (typeof window === 'undefined') return;
 
+    const container = this.canvas.parentElement;
     const resize = () => {
-      const container = this.canvas.parentElement;
-      const width = container ? container.clientWidth : window.innerWidth;
-      const height = container ? container.clientHeight : window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      this.canvas.width = width * dpr;
-      this.canvas.height = height * dpr;
-      this.ctx.resetTransform?.();
-      this.ctx.scale(dpr, dpr);
+      const width = this.canvas.clientWidth || container?.clientWidth || window.innerWidth;
+      const height = this.canvas.clientHeight || container?.clientHeight || window.innerHeight;
+      // Keep logical geometry independent of the backing buffer on retina screens.
+      const dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(1_000_000 / (width * height)));
+      const pixelWidth = Math.max(1, Math.floor(width * dpr));
+      const pixelHeight = Math.max(1, Math.floor(height * dpr));
+      this.viewport = { width, height };
+      this.juice.camera.zoom = Math.min(1.12, width / 500 * 1.12, height / 620 * 1.12);
+      if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
+        this.canvas.width = pixelWidth;
+        this.canvas.height = pixelHeight;
+      }
+      this.ctx.setTransform(pixelWidth / width, 0, 0, pixelHeight / height, 0, 0);
+      this.render();
     };
 
     window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    if (typeof ResizeObserver !== 'undefined' && container) {
+      new ResizeObserver(resize).observe(container);
+    }
     resize();
+  }
+
+  private setupLifecycle(): void {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.pauseGame();
+        this.stop();
+        sound.pauseMusic();
+      } else if (this.state === 'START') {
+        this.start();
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      this.pauseGame();
+      this.stop();
+      sound.pauseMusic();
+    });
+    window.addEventListener('pageshow', () => {
+      if (this.state === 'START') this.start();
+    });
   }
 
   private setupInput(): void {
@@ -122,13 +162,16 @@ export class Game {
     };
 
     this.canvas.addEventListener?.('pointerdown', (e) => {
+      if (!e.isPrimary || e.button !== 0) return;
       e.preventDefault();
       handleAction();
     });
 
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
         if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+          if (typeof HTMLElement !== 'undefined' && e.target instanceof HTMLElement && e.target.closest('button')) return;
           e.preventDefault();
           handleAction();
         } else if (e.code === 'KeyP' || e.code === 'Escape') {
@@ -159,7 +202,11 @@ export class Game {
       if (svgOff) svgOff.style.display = muted ? 'block' : 'none';
       const muteText = document.getElementById('modal-mute-text');
       if (muteText) muteText.innerText = muted ? 'MÜZİK: KAPALI' : 'MÜZİK: AÇIK';
-      if (btnMute) btnMute.title = muted ? 'Müziği Aç' : 'Müziği Kapat';
+      if (btnMute) {
+        btnMute.title = muted ? 'Sesi Aç' : 'Sesi Kapat';
+        btnMute.setAttribute('aria-label', btnMute.title);
+        btnMute.setAttribute('aria-pressed', String(muted));
+      }
     };
 
     btnHome?.addEventListener('click', (e) => {
@@ -194,12 +241,14 @@ export class Game {
       this.state = 'PLAYING';
       this.updatePauseModal(false);
       sound.playMusic();
+      this.start();
     });
   }
 
   public pauseGame(): void {
     if (this.state === 'PLAYING') {
       this.state = 'PAUSED';
+      this.stop();
       sound.pauseMusic();
       this.updatePauseModal(true);
     }
@@ -210,6 +259,7 @@ export class Game {
       this.state = 'PLAYING';
       sound.playMusic();
       this.updatePauseModal(false);
+      this.start();
     }
   }
 
@@ -226,6 +276,7 @@ export class Game {
   }
 
   public handleInput(): TurnResult | null {
+    if (this.state === 'PAUSED' || (this.state === 'PLAYING' && this.ball.isFalling)) return null;
     sound.init();
     sound.playMusic();
 
@@ -241,6 +292,7 @@ export class Game {
       this.restartGame();
       this.state = 'PLAYING';
       sound.playMusic();
+      this.start();
       return null;
     }
 
@@ -291,11 +343,15 @@ export class Game {
   }
 
   public start(): void {
+    if (typeof window === 'undefined' || this.running || this.state === 'PAUSED') return;
+    this.running = true;
     this.lastTime = performance.now();
+    this.lastRenderTime = 0;
     this.loop(this.lastTime);
   }
 
   public stop(): void {
+    this.running = false;
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -307,12 +363,18 @@ export class Game {
     this.lastTime = time;
 
     this.update(dt);
-    this.render();
+    if (this.state !== 'START' || time - this.lastRenderTime >= 1000 / 30) {
+      this.render();
+      this.lastRenderTime = time;
+    }
 
-    this.animationFrameId = requestAnimationFrame(this.loop);
+    if (this.state === 'GAME_OVER') this.stop();
+    if (this.running) this.animationFrameId = requestAnimationFrame(this.loop);
   };
 
   public update(dt: number): void {
+    if (this.state === 'PAUSED') return;
+    this.renderer.update(dt);
     if (this.state === 'PLAYING') {
       // Agresif Hızlanma: 110 px/s başlangıç, viraj başına +5.0 px/s, tavan 600 px/s (98. virajda maks)
       const currentSpeed = this.physics.calcSpeedForTurn(this.ball.currentSegmentIndex);
@@ -355,10 +417,6 @@ export class Game {
   }
 
   public render(): void {
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
-    const viewport = { width, height };
-
     const renderCamera = this.juice.getRenderCamera();
     const visualBallPos = this.juice.getVisualBallPosition(this.ball);
     const renderBall: Ball = {
@@ -370,7 +428,7 @@ export class Game {
 
     this.renderer.draw(
       this.ctx,
-      viewport,
+      this.viewport,
       renderCamera,
       this.world,
       renderBall,

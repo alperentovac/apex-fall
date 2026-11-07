@@ -6,6 +6,7 @@ export class SoundManager {
   private initialized = false;
   private activeTier = 0;
   private bgMusic: HTMLAudioElement | null = null;
+  private musicRequested = false;
 
   public onMilestone?: (combo: number, tier: number) => void;
 
@@ -53,6 +54,7 @@ export class SoundManager {
   }
 
   public playMusic(): void {
+    this.musicRequested = true;
     if (this.isMuted) return;
     this.init();
     if (this.bgMusic && this.bgMusic.paused) {
@@ -61,12 +63,14 @@ export class SoundManager {
   }
 
   public pauseMusic(): void {
+    this.musicRequested = false;
     if (this.bgMusic && !this.bgMusic.paused) {
       this.bgMusic.pause();
     }
   }
 
   private ensureContext(): boolean {
+    if (this.isMuted) return false;
     if (!this.initialized) {
       this.init();
     }
@@ -313,8 +317,8 @@ export class SoundManager {
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
     if (this.isMuted) {
-      this.pauseMusic();
-    } else {
+      this.bgMusic?.pause();
+    } else if (this.musicRequested) {
       this.playMusic();
     }
     return this.isMuted;
