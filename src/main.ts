@@ -310,7 +310,6 @@ export class Game {
         this.combo++;
         // Exactly 1 score per turn
         this.score += 1;
-        this.particles.spawnCornerSparks(this.ball, 14);
         sound.handleTurnEvent('PERFECT', this.combo);
         this.saveBestScores();
       } else if (result === 'GOOD') {
