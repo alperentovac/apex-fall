@@ -62,8 +62,14 @@ export class Game {
   private loadBestScores(): void {
     try {
       if (typeof localStorage !== 'undefined') {
-        this.bestScore = parseInt(localStorage.getItem('zigzag_best_score') || '0', 10);
-        this.bestCombo = parseInt(localStorage.getItem('zigzag_best_combo') || '0', 10);
+        this.bestScore = parseInt(
+          localStorage.getItem('apex_fall_best_score') || localStorage.getItem('zigzag_best_score') || '0',
+          10
+        );
+        this.bestCombo = parseInt(
+          localStorage.getItem('apex_fall_best_combo') || localStorage.getItem('zigzag_best_combo') || '0',
+          10
+        );
       }
     } catch {
       this.bestScore = 0;
@@ -76,10 +82,12 @@ export class Game {
       if (typeof localStorage !== 'undefined') {
         if (this.score > this.bestScore) {
           this.bestScore = this.score;
+          localStorage.setItem('apex_fall_best_score', this.bestScore.toString());
           localStorage.setItem('zigzag_best_score', this.bestScore.toString());
         }
         if (this.combo > this.bestCombo) {
           this.bestCombo = this.combo;
+          localStorage.setItem('apex_fall_best_combo', this.bestCombo.toString());
           localStorage.setItem('zigzag_best_combo', this.bestCombo.toString());
         }
       }

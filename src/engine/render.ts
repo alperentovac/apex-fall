@@ -283,27 +283,31 @@ export class GameRenderer {
 
     // State overlays
     if (state === 'START') {
-      ctx.fillStyle = 'rgba(9, 13, 24, 0.75)';
+      ctx.fillStyle = 'rgba(9, 13, 24, 0.8)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
+
+      const logoY = viewport.height / 2 - 80;
+      this.drawLogo(ctx, viewport.width / 2, logoY, 68);
 
       ctx.textAlign = 'center';
       ctx.font = '900 36px "Orbitron", sans-serif';
-      ctx.letterSpacing = '2px';
+      ctx.letterSpacing = '3px';
       ctx.fillStyle = '#00f0ff';
-      ctx.shadowColor = 'rgba(0, 240, 255, 0.8)';
-      ctx.shadowBlur = 16;
-      ctx.fillText('ZIGZAG FLOW', viewport.width / 2, viewport.height / 2 - 40);
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.85)';
+      ctx.shadowBlur = 18;
+      ctx.fillText('APEX FALL', viewport.width / 2, logoY + 70);
       ctx.shadowBlur = 0;
 
+      const pulseAlpha = 0.75 + Math.sin(this.pulsePhase * 3) * 0.25;
       ctx.font = '700 15px "Space Grotesk", "Orbitron", sans-serif';
-      ctx.letterSpacing = '1px';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText('BAŞLAMAK İÇİN DOKUN', viewport.width / 2, viewport.height / 2 + 15);
+      ctx.letterSpacing = '1.2px';
+      ctx.fillStyle = `rgba(255, 255, 255, ${pulseAlpha})`;
+      ctx.fillText('BAŞLAMAK İÇİN DOKUN', viewport.width / 2, logoY + 115);
 
       ctx.font = '600 13px "Space Grotesk", "Rajdhani", sans-serif';
       ctx.letterSpacing = '1px';
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
-      ctx.fillText('HER KÖŞEDE DÖNÜŞ +1 PUAN', viewport.width / 2, viewport.height / 2 + 45);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+      ctx.fillText('HER KÖŞEDE DÖNÜŞ +1 PUAN', viewport.width / 2, logoY + 145);
     } else if (state === 'GAME_OVER') {
       ctx.fillStyle = 'rgba(9, 13, 24, 0.82)';
       ctx.fillRect(0, 0, viewport.width, viewport.height);
@@ -372,5 +376,107 @@ export class GameRenderer {
     }
 
     ctx.restore();
+  }
+
+  private drawLogo(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    size: number
+  ): void {
+    const s = size / 2;
+    const pulse = Math.sin(this.pulsePhase * 2) * 1.5;
+
+    // Ambient radial glow behind the emblem
+    const glow = ctx.createRadialGradient(cx, cy, 5, cx, cy, s * 1.6);
+    glow.addColorStop(0, 'rgba(0, 240, 255, 0.28)');
+    glow.addColorStop(0.5, 'rgba(255, 42, 109, 0.15)');
+    glow.addColorStop(1, 'rgba(9, 13, 24, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // 1. Right Fall Face (Crimson / Magenta gradient)
+    const rightGrad = ctx.createLinearGradient(cx, cy - s, cx + s * 0.9, cy + s * 0.7);
+    rightGrad.addColorStop(0, '#ff2a6d');
+    rightGrad.addColorStop(1, '#881337');
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s);
+    ctx.lineTo(cx + s * 0.85, cy + s * 0.35);
+    ctx.lineTo(cx + s * 0.85, cy + s * 0.75);
+    ctx.lineTo(cx, cy + s * 0.4);
+    ctx.closePath();
+    ctx.fillStyle = rightGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#ff2a6d';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 2. Left Climb Face (Cyan / Sky gradient)
+    const leftGrad = ctx.createLinearGradient(cx - s * 0.9, cy + s * 0.7, cx, cy - s);
+    leftGrad.addColorStop(0, '#0284c7');
+    leftGrad.addColorStop(1, '#00f0ff');
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s);
+    ctx.lineTo(cx - s * 0.85, cy + s * 0.35);
+    ctx.lineTo(cx - s * 0.85, cy + s * 0.75);
+    ctx.lineTo(cx, cy + s * 0.4);
+    ctx.closePath();
+    ctx.fillStyle = leftGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 3. Top Summit Facet (Glassy diamond apex)
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s);
+    ctx.lineTo(cx + s * 0.45, cy - s * 0.6);
+    ctx.lineTo(cx, cy - s * 0.2);
+    ctx.lineTo(cx - s * 0.45, cy - s * 0.6);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 4. Central Chevron Cutouts (Apex Zigzag Lines)
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.5, cy + s * 0.15);
+    ctx.lineTo(cx, cy - s * 0.1);
+    ctx.lineTo(cx + s * 0.5, cy + s * 0.15);
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.4, cy + s * 0.45);
+    ctx.lineTo(cx, cy + s * 0.2);
+    ctx.lineTo(cx + s * 0.4, cy + s * 0.45);
+    ctx.strokeStyle = '#ff2a6d';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // 5. Summit Glowing Orb
+    const orbGlow = ctx.createRadialGradient(cx, cy - s, 1, cx, cy - s, 9 + pulse);
+    orbGlow.addColorStop(0, '#ffffff');
+    orbGlow.addColorStop(0.4, 'rgba(0, 240, 255, 0.9)');
+    orbGlow.addColorStop(1, 'rgba(0, 240, 255, 0)');
+
+    ctx.beginPath();
+    ctx.arc(cx, cy - s, 9 + pulse, 0, Math.PI * 2);
+    ctx.fillStyle = orbGlow;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy - s, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
   }
 }

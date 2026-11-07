@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Cyan neon gradient for upward apex -->
+    <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <!-- Crimson neon gradient for the fall -->
+    <linearGradient id="roseGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a6d" />
+      <stop offset="100%" stop-color="#9f1239" />
+    </linearGradient>
+
+    <!-- Top facet glass gradient -->
+    <linearGradient id="facetGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(0, 240, 255, 0.4)" />
+      <stop offset="100%" stop-color="rgba(15, 23, 42, 0.8)" />
+    </linearGradient>
+
+    <!-- Orb radial glow -->
+    <radialGradient id="orbGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="rgba(0, 240, 255, 0)" />
+    </radialGradient>
+
+    <!-- Glow filters -->
+    <filter id="neonBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background base rounded container -->
+  <rect width="128" height="128" rx="28" fill="#090D18" />
+  <rect width="124" height="124" x="2" y="2" rx="26" fill="none" stroke="rgba(0, 240, 255, 0.3)" stroke-width="1.5" />
+
+  <!-- 2.5D Isometric Apex Blocks -->
+  <g filter="url(#neonBlur)">
+    <!-- Right Downward Fall Face (Crimson) -->
+    <polygon points="64,26 102,48 102,74 64,52" fill="url(#roseGlow)" opacity="0.85" />
+    <polygon points="64,52 102,74 102,96 64,74" fill="#881337" opacity="0.9" />
+
+    <!-- Left Upward Climb Face (Cyan) -->
+    <polygon points="64,26 26,48 26,74 64,52" fill="url(#cyanGlow)" opacity="0.9" />
+    <polygon points="64,52 26,74 26,96 64,74" fill="#0369a1" opacity="0.95" />
+
+    <!-- Top Cap / Apex Vertex -->
+    <polygon points="64,26 83,37 64,48 45,37" fill="url(#facetGlass)" stroke="#00f0ff" stroke-width="1.5" />
+
+    <!-- Apex Fall Chevron Cutout / Zigzag Core -->
+    <polyline points="38,82 64,66 90,82" fill="none" stroke="#ff2a6d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    <polyline points="45,68 64,56 83,68" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Glowing Apex Sphere at Summit -->
+    <circle cx="64" cy="30" r="10" fill="url(#orbGlow)" />
+    <circle cx="64" cy="30" r="4" fill="#ffffff" />
+  </g>
+</svg>
