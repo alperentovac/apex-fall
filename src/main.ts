@@ -44,14 +44,14 @@ export class Game {
 
   public createInitialBall(): Ball {
     return {
-      x: 20,
+      x: 30,
       y: 0,
       z: 0,
       vx: this.physics.baseSpeed,
       vy: 0,
       vz: 0,
       dir: 'X',
-      radius: 9,
+      radius: 11,
       currentSegmentIndex: 0,
       isFalling: false,
       fallTimer: 0
@@ -202,8 +202,8 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
-      // Progressive speed scaling based on score
-      const currentSpeed = this.physics.baseSpeed + Math.min(this.score * 0.35, 180);
+      // Gentle progressive speed scaling based on score
+      const currentSpeed = this.physics.baseSpeed + Math.min(this.score * 0.2, 100);
       if (this.ball.dir === 'X' && !this.ball.isFalling) {
         this.ball.vx = currentSpeed;
         this.ball.vy = 0;

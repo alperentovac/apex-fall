@@ -42,7 +42,7 @@ export function screenToWorld(
 
 export class WorldManager {
   public segments: PathSegment[] = [];
-  public tileWidth = 40;
+  public tileWidth = 52;
   private rngSeed = 42;
 
   constructor() {
@@ -53,8 +53,8 @@ export class WorldManager {
     this.rngSeed = seed;
     this.segments = [];
 
-    // Starting runway: straight segment along X from (0, 0)
-    const initialLength = 120;
+    // Accessible, generous starting runway along X
+    const initialLength = 260;
     this.segments.push({
       index: 0,
       dir: 'X',
@@ -64,8 +64,8 @@ export class WorldManager {
       tileWidth: this.tileWidth
     });
 
-    // Generate initial set of segments
-    this.ensureSegmentsAhead(25, 160);
+    // Pre-generate ample segments ahead
+    this.ensureSegmentsAhead(30, 115);
   }
 
   private random(): number {
@@ -74,9 +74,8 @@ export class WorldManager {
   }
 
   public calcMinSegmentLength(speed: number): number {
-    // Human reaction time guaranteed (min 0.28s)
-    const minReactionTime = 0.28;
-    return Math.max(60, speed * minReactionTime);
+    // Generous human reaction time (at least 0.85s reaction window)
+    return Math.max(120, speed * 0.85);
   }
 
   public ensureSegmentsAhead(targetCount: number, currentSpeed: number): void {
@@ -84,7 +83,8 @@ export class WorldManager {
       const last = this.segments[this.segments.length - 1];
       const nextDir: Direction = last.dir === 'X' ? 'Y' : 'X';
       const minLen = this.calcMinSegmentLength(currentSpeed);
-      const length = Math.round(minLen + this.random() * (minLen * 1.2));
+      // Gentle rhythmic variance giving 1.1s - 1.8s reaction space
+      const length = Math.round(minLen + this.random() * 80);
 
       const start = { x: last.end.x, y: last.end.y };
       const end = {

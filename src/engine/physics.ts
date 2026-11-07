@@ -2,10 +2,10 @@ import { Ball, TurnResult } from '../types';
 import { WorldManager } from './world';
 
 export class PhysicsEngine {
-  public rPerfect = 12;
-  public rGood = 24;
-  public gravity = 1400;
-  public baseSpeed = 160;
+  public rPerfect = 16;
+  public rGood = 42;
+  public gravity = 1200;
+  public baseSpeed = 115;
 
   public evaluateTurn(ball: Ball, world: WorldManager): TurnResult {
     const currentSeg = world.segments[ball.currentSegmentIndex];
@@ -34,7 +34,7 @@ export class PhysicsEngine {
 
   private executeTurn(ball: Ball, world: WorldManager): void {
     const nextIndex = ball.currentSegmentIndex + 1;
-    world.ensureSegmentsAhead(nextIndex + 15, Math.hypot(ball.vx, ball.vy) || this.baseSpeed);
+    world.ensureSegmentsAhead(nextIndex + 20, Math.hypot(ball.vx, ball.vy) || this.baseSpeed);
 
     const nextSeg = world.segments[nextIndex];
     const speed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
@@ -54,7 +54,6 @@ export class PhysicsEngine {
   }
 
   public update(dt: number, ball: Ball, world: WorldManager): void {
-    // Fixed substep loop to prevent physics tunneling
     let remaining = dt;
     const maxSubStep = 0.02; // 20ms substeps
     while (remaining > 0.0001) {
@@ -90,18 +89,22 @@ export class PhysicsEngine {
     if (currSeg.dir === 'X') {
       if (ball.x > currSeg.end.x + halfTile) {
         ball.isFalling = true;
-        ball.vz = -50;
+        ball.vz = -100;
+        ball.z += ball.vz * stepDt;
       } else if (Math.abs(ball.y - currSeg.end.y) > halfTile) {
         ball.isFalling = true;
-        ball.vz = -50;
+        ball.vz = -100;
+        ball.z += ball.vz * stepDt;
       }
     } else {
       if (ball.y > currSeg.end.y + halfTile) {
         ball.isFalling = true;
-        ball.vz = -50;
+        ball.vz = -100;
+        ball.z += ball.vz * stepDt;
       } else if (Math.abs(ball.x - currSeg.end.x) > halfTile) {
         ball.isFalling = true;
-        ball.vz = -50;
+        ball.vz = -100;
+        ball.z += ball.vz * stepDt;
       }
     }
   }

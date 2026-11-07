@@ -1,5 +1,5 @@
 export class JuiceManager {
-  public camera = { x: 0, y: 0, z: 0, zoom: 1 };
+  public camera = { x: 0, y: 0, z: 0, zoom: 1.12 };
   public shakeOffsetX = 0;
   public shakeOffsetY = 0;
 
@@ -8,11 +8,14 @@ export class JuiceManager {
   private shakeTimer = 0;
 
   // Adaptive framerate-independent camera smoothing factor
-  private readonly followSpeed = 8.5;
+  private readonly followSpeed = 6.5;
+
+  // Lead offset frames the ball ~30% from top of screen so upcoming zigzag path is fully visible
+  public forwardLead = 110;
 
   public reset(startX = 0, startY = 0): void {
-    this.camera.x = startX;
-    this.camera.y = startY;
+    this.camera.x = startX + this.forwardLead;
+    this.camera.y = startY + this.forwardLead;
     this.camera.z = 0;
     this.shakeOffsetX = 0;
     this.shakeOffsetY = 0;
@@ -32,8 +35,11 @@ export class JuiceManager {
     // Framerate-independent exponential smoothing
     const blend = 1 - Math.exp(-this.followSpeed * dt);
 
-    this.camera.x += (target.x - this.camera.x) * blend;
-    this.camera.y += (target.y - this.camera.y) * blend;
+    const targetX = target.x + this.forwardLead;
+    const targetY = target.y + this.forwardLead;
+
+    this.camera.x += (targetX - this.camera.x) * blend;
+    this.camera.y += (targetY - this.camera.y) * blend;
 
     // Subtle camera dip when falling
     if (target.isFalling) {
