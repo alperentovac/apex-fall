@@ -1,16 +1,21 @@
 import { GameState, Ball, TurnResult } from './types';
-import { WorldManager, PhysicsEngine, worldToScreen } from './engine/zigzag';
+import { WorldManager, PhysicsEngine } from './engine/zigzag';
 import { sound } from './engine/audio';
+import { ParticleManager } from './engine/particles';
+import { JuiceManager } from './engine/juice';
+import { GameRenderer } from './engine/render';
 
 export class Game {
   public canvas: HTMLCanvasElement;
   public ctx: CanvasRenderingContext2D;
   public world: WorldManager;
   public physics: PhysicsEngine;
+  public particles: ParticleManager;
+  public juice: JuiceManager;
+  public renderer: GameRenderer;
 
   public state: GameState = 'START';
   public ball: Ball;
-  public camera = { x: 0, y: 0, zoom: 1 };
   public score = 0;
   public combo = 0;
   public bestScore = 0;
@@ -26,8 +31,12 @@ export class Game {
 
     this.world = new WorldManager();
     this.physics = new PhysicsEngine();
+    this.particles = new ParticleManager();
+    this.juice = new JuiceManager();
+    this.renderer = new GameRenderer();
 
     this.ball = this.createInitialBall();
+    this.juice.reset(this.ball.x, this.ball.y);
     this.loadBestScores();
     this.setupResize();
     this.setupInput();
@@ -139,6 +148,7 @@ export class Game {
       if (result === 'PERFECT') {
         this.combo++;
         this.score += 10 + this.combo * 2;
+        this.particles.spawnCornerSparks(this.ball, 14);
         sound.handleTurnEvent('PERFECT', this.combo);
         this.saveBestScores();
       } else if (result === 'GOOD') {
@@ -147,7 +157,8 @@ export class Game {
         sound.handleTurnEvent('GOOD', 0);
         this.saveBestScores();
       } else {
-        // Miss
+        // Miss: fall triggered
+        this.juice.triggerShake(4, 0.15);
         sound.handleTurnEvent('MISS', 0);
         this.saveBestScores();
       }
@@ -160,8 +171,8 @@ export class Game {
   public restartGame(): void {
     this.world.reset();
     this.ball = this.createInitialBall();
-    this.camera.x = this.ball.x;
-    this.camera.y = this.ball.y;
+    this.juice.reset(this.ball.x, this.ball.y);
+    this.particles.clear();
     this.score = 0;
     this.combo = 0;
     this.ballTrail = [];
@@ -191,8 +202,8 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
-      // Progressive speed scaling
-      const currentSpeed = this.physics.baseSpeed + Math.min(this.score * 0.4, 200);
+      // Progressive speed scaling based on score
+      const currentSpeed = this.physics.baseSpeed + Math.min(this.score * 0.35, 180);
       if (this.ball.dir === 'X' && !this.ball.isFalling) {
         this.ball.vx = currentSpeed;
         this.ball.vy = 0;
@@ -203,7 +214,7 @@ export class Game {
 
       this.physics.update(dt, this.ball, this.world);
 
-      // Record trail
+      // Record visual trail
       if (!this.ball.isFalling) {
         this.ballTrail.unshift({ x: this.ball.x, y: this.ball.y, z: this.ball.z, alpha: 1.0 });
         if (this.ballTrail.length > 25) {
@@ -217,14 +228,16 @@ export class Game {
         this.saveBestScores();
       }
 
-      // Smooth camera follow
-      this.camera.x += (this.ball.x - this.camera.x) * 0.12;
-      this.camera.y += (this.ball.y - this.camera.y) * 0.12;
+      // Smooth framerate-independent camera tracking (60 FPS / 120 FPS adaptive)
+      this.juice.update(dt, this.ball);
     }
+
+    // Update particle juice
+    this.particles.update(dt);
 
     // Decay trail
     for (const t of this.ballTrail) {
-      t.alpha = Math.max(0, t.alpha - dt * 2.5);
+      t.alpha = Math.max(0, t.alpha - dt * 2.8);
     }
   }
 
@@ -233,164 +246,22 @@ export class Game {
     const height = this.canvas.height / (window.devicePixelRatio || 1);
     const viewport = { width, height };
 
-    // Midnight void background
-    this.ctx.fillStyle = '#090D18';
-    this.ctx.fillRect(0, 0, width, height);
+    const renderCamera = this.juice.getRenderCamera();
 
-    // Render path segments
-    this.renderPath(viewport);
-
-    // Render trail
-    this.renderTrail(viewport);
-
-    // Render glowing ball
-    this.renderBall(viewport);
-
-    // Render HUD
-    this.renderHUD(width, height);
-  }
-
-  private renderPath(viewport: { width: number; height: number }): void {
-    const startIdx = Math.max(0, this.ball.currentSegmentIndex - 2);
-    const endIdx = Math.min(this.world.segments.length, this.ball.currentSegmentIndex + 14);
-
-    for (let i = startIdx; i < endIdx; i++) {
-      const seg = this.world.segments[i];
-      const halfW = seg.tileWidth / 2;
-
-      // Draw segment as an isometric ribbon / platform
-      let p0: { x: number; y: number };
-      let p1: { x: number; y: number };
-      let p2: { x: number; y: number };
-      let p3: { x: number; y: number };
-
-      if (seg.dir === 'X') {
-        p0 = worldToScreen({ x: seg.start.x, y: seg.start.y - halfW, z: 0 }, this.camera, viewport);
-        p1 = worldToScreen({ x: seg.end.x, y: seg.end.y - halfW, z: 0 }, this.camera, viewport);
-        p2 = worldToScreen({ x: seg.end.x, y: seg.end.y + halfW, z: 0 }, this.camera, viewport);
-        p3 = worldToScreen({ x: seg.start.x, y: seg.start.y + halfW, z: 0 }, this.camera, viewport);
-      } else {
-        p0 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y, z: 0 }, this.camera, viewport);
-        p1 = worldToScreen({ x: seg.end.x - halfW, y: seg.end.y, z: 0 }, this.camera, viewport);
-        p2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y, z: 0 }, this.camera, viewport);
-        p3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y, z: 0 }, this.camera, viewport);
-      }
-
-      // Top surface
-      this.ctx.beginPath();
-      this.ctx.moveTo(p0.x, p0.y);
-      this.ctx.lineTo(p1.x, p1.y);
-      this.ctx.lineTo(p2.x, p2.y);
-      this.ctx.lineTo(p3.x, p3.y);
-      this.ctx.closePath();
-
-      this.ctx.fillStyle = i === this.ball.currentSegmentIndex ? '#1d2a4a' : '#141d33';
-      this.ctx.fill();
-      this.ctx.strokeStyle = '#00f0ff33';
-      this.ctx.lineWidth = 1.5;
-      this.ctx.stroke();
-
-      // Corner platform indicator
-      const cornerScreen = worldToScreen({ x: seg.end.x, y: seg.end.y, z: 0 }, this.camera, viewport);
-      this.ctx.beginPath();
-      this.ctx.arc(cornerScreen.x, cornerScreen.y, 4, 0, Math.PI * 2);
-      this.ctx.fillStyle = '#00f0ff88';
-      this.ctx.fill();
-    }
-  }
-
-  private renderTrail(viewport: { width: number; height: number }): void {
-    for (const t of this.ballTrail) {
-      if (t.alpha <= 0.05) continue;
-      const screenPos = worldToScreen({ x: t.x, y: t.y, z: t.z }, this.camera, viewport);
-      this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, this.ball.radius * 0.75, 0, Math.PI * 2);
-      this.ctx.fillStyle = `rgba(0, 240, 255, ${t.alpha * 0.35})`;
-      this.ctx.fill();
-    }
-  }
-
-  private renderBall(viewport: { width: number; height: number }): void {
-    const screenPos = worldToScreen(this.ball, this.camera, viewport);
-
-    // Ball glow
-    const grad = this.ctx.createRadialGradient(
-      screenPos.x,
-      screenPos.y,
-      2,
-      screenPos.x,
-      screenPos.y,
-      this.ball.radius * 2.5
+    this.renderer.draw(
+      this.ctx,
+      viewport,
+      renderCamera,
+      this.world,
+      this.ball,
+      this.ballTrail,
+      this.particles,
+      this.state,
+      this.score,
+      this.combo,
+      this.bestScore,
+      this.bestCombo
     );
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.35, '#00f0ff');
-    grad.addColorStop(1, 'rgba(0, 240, 255, 0)');
-
-    this.ctx.beginPath();
-    this.ctx.arc(screenPos.x, screenPos.y, this.ball.radius * 2.5, 0, Math.PI * 2);
-    this.ctx.fillStyle = grad;
-    this.ctx.fill();
-
-    // Solid ball core
-    this.ctx.beginPath();
-    this.ctx.arc(screenPos.x, screenPos.y, this.ball.radius, 0, Math.PI * 2);
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fill();
-  }
-
-  private renderHUD(width: number, height: number): void {
-    this.ctx.save();
-    this.ctx.font = '700 16px "Orbitron", sans-serif';
-
-    // Top-left: Score
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`SCORE ${this.score}`, 24, 38);
-
-    // Top-center: Perfect Combo
-    if (this.combo > 0) {
-      this.ctx.fillStyle = '#ffe600';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(`×${this.combo}`, width / 2, 38);
-    }
-
-    // Top-right: Best Score
-    this.ctx.fillStyle = '#94a3b8';
-    this.ctx.textAlign = 'right';
-    this.ctx.fillText(`BEST ${this.bestScore}`, width - 24, 38);
-
-    // State overlays
-    if (this.state === 'START') {
-      this.ctx.fillStyle = 'rgba(9, 13, 24, 0.75)';
-      this.ctx.fillRect(0, 0, width, height);
-
-      this.ctx.textAlign = 'center';
-      this.ctx.fillStyle = '#00f0ff';
-      this.ctx.font = '900 28px "Orbitron", sans-serif';
-      this.ctx.fillText('ZIGZAG FLOW', width / 2, height / 2 - 30);
-
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = '700 14px "Rajdhani", sans-serif';
-      this.ctx.fillText('TAP OR PRESS SPACE TO START', width / 2, height / 2 + 15);
-    } else if (this.state === 'GAME_OVER') {
-      this.ctx.fillStyle = 'rgba(9, 13, 24, 0.8)';
-      this.ctx.fillRect(0, 0, width, height);
-
-      this.ctx.textAlign = 'center';
-      this.ctx.fillStyle = '#ff0055';
-      this.ctx.font = '900 26px "Orbitron", sans-serif';
-      this.ctx.fillText('FALL DETECTED', width / 2, height / 2 - 40);
-
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = '700 18px "Orbitron", sans-serif';
-      this.ctx.fillText(`SCORE: ${this.score}  |  BEST: ${this.bestScore}`, width / 2, height / 2);
-
-      this.ctx.fillStyle = '#00f0ff';
-      this.ctx.font = '700 13px "Rajdhani", sans-serif';
-      this.ctx.fillText('TAP TO RESTART INSTANTLY', width / 2, height / 2 + 45);
-    }
-
-    this.ctx.restore();
   }
 }
 

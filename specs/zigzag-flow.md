@@ -61,7 +61,7 @@ Build **ZIGZAG FLOW**, a minimalist, fast-paced, highly rhythmic 2.5D isometric 
   - Connect corner timing events directly to musical feedback and milestone flourishes.
   - Files touched: `src/engine/audio.ts`, `src/main.ts`, `tests/zigzag-flow.test.ts`.
 
-- [ ] Slice 3: Zen Arcade Visuals, Particle Juice, Smooth Camera & Local Persistence -> `verify: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1`
+- [x] Slice 3: Zen Arcade Visuals, Particle Juice, Smooth Camera & Local Persistence -> `verify: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1`
   - Style canvas with deep midnight navy background (`#090D18`), glowing geometric path tiles, neon ball trail, and restrained particle bursts on Perfect turns.
   - Implement smooth camera tracking (`lerp`) targeting 60 FPS on mobile and 120 FPS on high-refresh displays.
   - Render clean minimal HUD (Score, Combo, Best Score, Best Combo) and connect `localStorage` persistence.

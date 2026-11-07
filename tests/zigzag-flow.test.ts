@@ -374,4 +374,83 @@ describe('Combo & Audio Tier Seam', () => {
   });
 });
 
+describe('High Score & Persistence Seam', () => {
+  it('reads and persists best score and highest combo to localStorage', async () => {
+    // Mock localStorage
+    const storage: Record<string, string> = {
+      zigzag_best_score: '120',
+      zigzag_best_combo: '15'
+    };
+
+    const mockLocalStorage = {
+      getItem: (key: string) => storage[key] || null,
+      setItem: (key: string, val: string) => {
+        storage[key] = val;
+      }
+    };
+
+    // Temporarily attach to globalThis
+    const origStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: mockLocalStorage,
+      writable: true,
+      configurable: true
+    });
+
+    try {
+      const { Game } = await import('../src/main');
+      const mockCanvas = {
+        getContext: () => ({
+          resetTransform: () => {},
+          scale: () => {},
+          fillRect: () => {},
+          beginPath: () => {},
+          moveTo: () => {},
+          lineTo: () => {},
+          closePath: () => {},
+          fill: () => {},
+          stroke: () => {},
+          arc: () => {},
+          save: () => {},
+          restore: () => {},
+          fillText: () => {},
+          createRadialGradient: () => ({
+            addColorStop: () => {}
+          })
+        }),
+        addEventListener: () => {},
+        parentElement: null,
+        width: 400,
+        height: 600
+      } as unknown as HTMLCanvasElement;
+
+      const game = new Game(mockCanvas);
+      expect(game.bestScore).toBe(120);
+      expect(game.bestCombo).toBe(15);
+
+      // Score higher
+      game.score = 250;
+      game.combo = 28;
+      game.saveBestScores();
+
+      expect(storage['zigzag_best_score']).toBe('250');
+      expect(storage['zigzag_best_combo']).toBe('28');
+      expect(game.bestScore).toBe(250);
+      expect(game.bestCombo).toBe(28);
+
+      // Lower score should not overwrite best
+      game.score = 80;
+      game.saveBestScores();
+      expect(storage['zigzag_best_score']).toBe('250');
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: origStorage,
+        writable: true,
+        configurable: true
+      });
+    }
+  });
+});
+
+
 
