@@ -50,7 +50,7 @@ export class PhysicsEngine {
       }
       ball.currentSegmentIndex = nextIndex;
     }
-    // Important: ball.x and ball.y are strictly PRESERVED (no position snapping)
+    // Important: ball.x and ball.y are strictly PRESERVED on turn (no artificial snapping)
   }
 
   public update(dt: number, ball: Ball, world: WorldManager): void {
@@ -73,9 +73,6 @@ export class PhysicsEngine {
       return;
     }
 
-    ball.x += ball.vx * stepDt;
-    ball.y += ball.vy * stepDt;
-
     const currSeg = world.segments[ball.currentSegmentIndex];
     if (!currSeg) {
       ball.isFalling = true;
@@ -83,28 +80,47 @@ export class PhysicsEngine {
       return;
     }
 
+    // Smoothly guide lateral position towards lane centerline so turning doesn't slide off
+    if (currSeg.dir === 'X') {
+      ball.y += (currSeg.end.y - ball.y) * (1 - Math.exp(-6 * stepDt));
+    } else {
+      ball.x += (currSeg.end.x - ball.x) * (1 - Math.exp(-6 * stepDt));
+    }
+
+    ball.x += ball.vx * stepDt;
+    ball.y += ball.vy * stepDt;
+
     const halfTile = currSeg.tileWidth / 2;
 
-    // Check overshoot past segment corner
+    // Check overshoot past segment corner and lateral edge margins
     if (currSeg.dir === 'X') {
       if (ball.x > currSeg.end.x + halfTile) {
         ball.isFalling = true;
         ball.vz = -100;
         ball.z += ball.vz * stepDt;
-      } else if (Math.abs(ball.y - currSeg.end.y) > halfTile) {
-        ball.isFalling = true;
-        ball.vz = -100;
-        ball.z += ball.vz * stepDt;
+      } else {
+        // At corner junction zone, junction platform is wider to absorb incoming turns
+        const isNearStartCorner = ball.x - currSeg.start.x < currSeg.tileWidth;
+        const allowedLateral = isNearStartCorner ? currSeg.tileWidth * 0.95 : halfTile + 4;
+        if (Math.abs(ball.y - currSeg.end.y) > allowedLateral) {
+          ball.isFalling = true;
+          ball.vz = -100;
+          ball.z += ball.vz * stepDt;
+        }
       }
     } else {
       if (ball.y > currSeg.end.y + halfTile) {
         ball.isFalling = true;
         ball.vz = -100;
         ball.z += ball.vz * stepDt;
-      } else if (Math.abs(ball.x - currSeg.end.x) > halfTile) {
-        ball.isFalling = true;
-        ball.vz = -100;
-        ball.z += ball.vz * stepDt;
+      } else {
+        const isNearStartCorner = ball.y - currSeg.start.y < currSeg.tileWidth;
+        const allowedLateral = isNearStartCorner ? currSeg.tileWidth * 0.95 : halfTile + 4;
+        if (Math.abs(ball.x - currSeg.end.x) > allowedLateral) {
+          ball.isFalling = true;
+          ball.vz = -100;
+          ball.z += ball.vz * stepDt;
+        }
       }
     }
   }

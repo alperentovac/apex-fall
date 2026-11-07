@@ -82,23 +82,23 @@ export class GameRenderer {
       let b3: { x: number; y: number };
 
       if (seg.dir === 'X') {
-        t0 = worldToScreen({ x: seg.start.x, y: seg.start.y - halfW, z: 0 }, camera, viewport);
-        t1 = worldToScreen({ x: seg.end.x, y: seg.end.y - halfW, z: 0 }, camera, viewport);
-        t2 = worldToScreen({ x: seg.end.x, y: seg.end.y + halfW, z: 0 }, camera, viewport);
-        t3 = worldToScreen({ x: seg.start.x, y: seg.start.y + halfW, z: 0 }, camera, viewport);
+        t0 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y - halfW, z: 0 }, camera, viewport);
+        t1 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y - halfW, z: 0 }, camera, viewport);
+        t2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y + halfW, z: 0 }, camera, viewport);
+        t3 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y + halfW, z: 0 }, camera, viewport);
 
-        b1 = worldToScreen({ x: seg.end.x, y: seg.end.y - halfW, z: -blockDepth }, camera, viewport);
-        b2 = worldToScreen({ x: seg.end.x, y: seg.end.y + halfW, z: -blockDepth }, camera, viewport);
-        b3 = worldToScreen({ x: seg.start.x, y: seg.start.y + halfW, z: -blockDepth }, camera, viewport);
+        b1 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y - halfW, z: -blockDepth }, camera, viewport);
+        b2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y + halfW, z: -blockDepth }, camera, viewport);
+        b3 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y + halfW, z: -blockDepth }, camera, viewport);
       } else {
-        t0 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y, z: 0 }, camera, viewport);
-        t1 = worldToScreen({ x: seg.end.x - halfW, y: seg.end.y, z: 0 }, camera, viewport);
-        t2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y, z: 0 }, camera, viewport);
-        t3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y, z: 0 }, camera, viewport);
+        t0 = worldToScreen({ x: seg.start.x - halfW, y: seg.start.y - halfW, z: 0 }, camera, viewport);
+        t1 = worldToScreen({ x: seg.end.x - halfW, y: seg.end.y + halfW, z: 0 }, camera, viewport);
+        t2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y + halfW, z: 0 }, camera, viewport);
+        t3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y - halfW, z: 0 }, camera, viewport);
 
-        b1 = worldToScreen({ x: seg.end.x - halfW, y: seg.end.y, z: -blockDepth }, camera, viewport);
-        b2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y, z: -blockDepth }, camera, viewport);
-        b3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y, z: -blockDepth }, camera, viewport);
+        b1 = worldToScreen({ x: seg.end.x - halfW, y: seg.end.y + halfW, z: -blockDepth }, camera, viewport);
+        b2 = worldToScreen({ x: seg.end.x + halfW, y: seg.end.y + halfW, z: -blockDepth }, camera, viewport);
+        b3 = worldToScreen({ x: seg.start.x + halfW, y: seg.start.y - halfW, z: -blockDepth }, camera, viewport);
       }
 
       // 3D Extruded right side face
