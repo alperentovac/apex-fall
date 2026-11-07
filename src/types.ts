@@ -1,54 +1,47 @@
-export type GameState = 'START' | 'PLAYING' | 'CRASHED';
+export type GameState = 'START' | 'PLAYING' | 'GAME_OVER';
 
-export type SegmentType = 'GAP' | 'SAFE' | 'HAZARD';
+export type Direction = 'X' | 'Y';
 
-export interface RingSegment {
-  startAngle: number; // In radians [0, 2*PI)
-  endAngle: number;   // In radians [0, 2*PI)
-  type: SegmentType;
-  color?: string;
-  hasObstacle?: boolean;
+export type TurnResult = 'PERFECT' | 'GOOD' | 'MISS';
+
+export type AudioTier = 1 | 2 | 3 | 4 | 5;
+
+export interface PathSegment {
+  index: number;
+  dir: Direction;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  length: number;
+  tileWidth: number;
 }
 
-export interface Ring {
-  id: number;
-  depth: number;
+export interface Ball {
+  x: number;
   y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  dir: Direction;
   radius: number;
-  thickness: number;
-  rotation: number;     // Current rotation angle in radians
-  rotSpeed: number;     // Auto-rotation speed for challenging rings
-  color: string;
-  glow: string;
-  segments: RingSegment[];
-  passed: boolean;
-  isBroken: boolean;
-  colorIndex: number;
-}
-
-export interface Gem {
-  id: number;
-  ringId: number;
-  angle: number;        // Angle on the ring (radians)
-  y: number;
-  radius: number;
-  collected: boolean;
-  value: number;
-  color: string;
-  pulseOffset: number;
+  currentSegmentIndex: number;
+  isFalling: boolean;
+  fallTimer: number;
 }
 
 export interface Particle {
   x: number;
   y: number;
+  z?: number;
   vx: number;
   vy: number;
+  vz?: number;
+  color: string;
+  size: number;
+  alpha: number;
   life: number;
   maxLife: number;
-  size: number;
-  color: string;
-  alpha: number;
-  shape: 'circle' | 'square' | 'ring' | 'spark' | 'fragment';
+  shape?: 'circle' | 'square' | 'ring' | 'spark' | 'fragment';
   rotation?: number;
   vRot?: number;
 }
@@ -77,57 +70,12 @@ export interface FloatingText {
   scale: number;
 }
 
-export interface Player {
-  x: number;
-  y: number;
-  vy: number;
-  radius: number;
-
-  // Meteor Fireball Dive Mode (Finite duration & smashes)
-  consecutiveGaps: number;
-  isMeteor: boolean;
-  meteorTimer: number;
-  meteorMaxTimer: number;
-  meteorSmashesRemaining: number;
-
-  // Ring/Cylinder rotation steering
-  cylinderRotation: number;
-  rotationVelocity: number;
-  tiltAngle: number;
-
-  // Squash & Stretch juice
-  scaleX: number;
-  scaleY: number;
-
-  // Color shifting per hole
-  colorThemeIndex: number;
-
-  // Progression & Stats
-  currentDepth: number;
-  maxDepthAchieved: number;
+export interface GameStats {
   score: number;
-  totalGems: number;
-  comboMultiplier: number;
-  perfectDropStreak: number;
-  roundTimeRemaining: number;
-  roundTimeTotal: number;
-
-  // Fast fall state for juice/camera
-  isFallingFast: boolean;
-
-  // 4-Way Action States
-  isDiving?: boolean;
-  diveTimer?: number;
-  isGliding?: boolean;
-  glideTimer?: number;
-  speedMultiplier?: number;
-
-  // Cosmic Energy Shields & Invulnerability
-  shields?: number;
-  maxShields?: number;
-  invulnerableTimer?: number;
-
-  // Visual trail
-  trailHistory: Array<{ x: number; y: number; alpha: number; scale: number; isMeteor: boolean }>;
-  trailAngles?: Array<{ angle: number; alpha: number; isMeteor: boolean }>;
+  combo: number;
+  bestScore: number;
+  bestCombo: number;
+  audioTier: AudioTier;
+  perfectCount: number;
+  goodCount: number;
 }

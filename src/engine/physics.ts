@@ -1,373 +1,108 @@
-import { Player, Ring, RingSegment, Gem } from '../types';
-import { ParticleManager } from './particles';
-import { sound } from './audio';
-
-export interface CollisionResult {
-  hit: boolean;
-  ring?: Ring;
-  segment?: RingSegment;
-  action: 'PASS_GAP' | 'SMASH' | 'CRASH' | 'NONE';
-}
-
-export interface GuideResult {
-  step: -1 | 0 | 1; // -1: Left (120°), +1: Right (120°), 0: Aligned
-  label: string;
-}
+import { Ball, TurnResult } from '../types';
+import { WorldManager } from './world';
 
 export class PhysicsEngine {
-  public readonly baseGravity = 360;
-  public readonly baseTerminalVelocity = 380;
-  public readonly maxTerminalVelocity = 1150;
-  public readonly meteorDiveSpeed = 1450;
-  public readonly worldWidth = 480;
-  public readonly contactAngle = Math.PI / 2; // Front of the ellipse (facing camera)
+  public rPerfect = 12;
+  public rGood = 24;
+  public gravity = 1400;
+  public baseSpeed = 160;
 
-  public update(
-    dt: number,
-    player: Player,
-    rings: Ring[],
-    gems: Gem[],
-    particles: ParticleManager,
-    onCrash?: () => void,
-    onPassGap?: (ring: Ring) => void,
-    onSmashRing?: (ring: Ring) => void
-  ): void {
-    player.scaleX += (1 - player.scaleX) * Math.min(1, dt * 20);
-    player.scaleY += (1 - player.scaleY) * Math.min(1, dt * 20);
-
-    player.trailHistory.unshift({
-      x: player.x,
-      y: player.y,
-      alpha: player.isMeteor ? 0.9 : 0.65,
-      scale: player.scaleX,
-      isMeteor: player.isMeteor
-    });
-    if (player.trailHistory.length > 8) {
-      player.trailHistory.pop();
-    }
-    for (const t of player.trailHistory) {
-      t.alpha -= dt * (player.isMeteor ? 3.0 : 4.0);
+  public evaluateTurn(ball: Ball, world: WorldManager): TurnResult {
+    const currentSeg = world.segments[ball.currentSegmentIndex];
+    if (!currentSeg) {
+      ball.isFalling = true;
+      ball.vz = -50;
+      return 'MISS';
     }
 
-    if (player.isMeteor) {
-      player.meteorTimer -= dt;
-      if (player.meteorTimer <= 0) {
-        this.deactivateMeteor(player);
-      }
-    }
+    const corner = currentSeg.end;
+    const distToCorner = Math.hypot(ball.x - corner.x, ball.y - corner.y);
 
-    // 4-Way Action Timers Update
-    if (player.diveTimer && player.diveTimer > 0) {
-      player.diveTimer -= dt;
-      if (player.diveTimer <= 0) {
-        player.isDiving = false;
-        player.diveTimer = 0;
-      }
-    }
-
-    if (player.glideTimer && player.glideTimer > 0) {
-      player.glideTimer -= dt;
-      if (player.glideTimer <= 0) {
-        player.isGliding = false;
-        player.glideTimer = 0;
-      }
-    }
-
-    // Invulnerability Flash Timer
-    if (player.invulnerableTimer && player.invulnerableTimer > 0) {
-      player.invulnerableTimer -= dt;
-      if (player.invulnerableTimer <= 0) {
-        player.invulnerableTimer = 0;
-      }
-    }
-
-    // Progression: +0.1 speed every 10 steps (combo streak / passed rings)
-    // Starts at normal comfortable speed 1.0x, increases smoothly by +0.1x per 10 steps, capped at a humanly playable max 1.9x
-    const stepCount = player.perfectDropStreak || player.consecutiveGaps || 0;
-    const comboTier = Math.floor(stepCount / 10);
-    const comboSpeedMultiplier = Math.min(1.9, 1.0 + comboTier * 0.1);
-    player.speedMultiplier = comboSpeedMultiplier;
-
-    const depthProgress = Math.min(player.currentDepth * 0.008, 0.35);
-    let effectiveGravity = this.baseGravity * comboSpeedMultiplier * (1 + depthProgress);
-    let effectiveTerminalVelocity = Math.min(
-      this.maxTerminalVelocity,
-      this.baseTerminalVelocity * comboSpeedMultiplier + player.currentDepth * 4
-    );
-
-    // Apply 4-Way Action Modifiers:
-    if (player.isDiving) {
-      // SLAM DIVE (AŞAĞI / S / Down Arrow / Swipe Down): Explosive dive burst
-      effectiveGravity *= 2.4;
-      effectiveTerminalVelocity = Math.min(this.maxTerminalVelocity, effectiveTerminalVelocity * 1.55);
-      player.vy = Math.max(player.vy, 680);
-    } else if (player.isGliding) {
-      // AIR-BRAKE GLIDE (YUKARI / W / Up Arrow / Swipe Up): Gentle anti-gravity deceleration
-      effectiveGravity *= 0.35;
-      effectiveTerminalVelocity = Math.max(180, effectiveTerminalVelocity * 0.55);
-      player.vy = Math.min(player.vy, effectiveTerminalVelocity);
-    }
-
-    if (player.isMeteor) {
-      effectiveTerminalVelocity = this.meteorDiveSpeed;
-    }
-
-    player.vy += effectiveGravity * dt;
-    if (player.vy > effectiveTerminalVelocity) {
-      player.vy = effectiveTerminalVelocity;
-    }
-
-    const prevY = player.y;
-    const newY = player.y + player.vy * dt;
-
-    if (player.vy > 0) {
-      for (const ring of rings) {
-        if (ring.isBroken) continue;
-
-        if (prevY <= ring.y && newY >= ring.y) {
-          const result = this.resolveRingCollision(player, ring);
-
-          if (result.action === 'SMASH') {
-            ring.isBroken = true;
-            ring.passed = true;
-            player.currentDepth = ring.depth;
-            if (player.currentDepth > player.maxDepthAchieved) {
-              player.maxDepthAchieved = player.currentDepth;
-            }
-            player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.5) * 10) / 10);
-            const smashPoints = Math.round(100 * player.comboMultiplier);
-            player.score += smashPoints;
-
-            sound.playShatter();
-            particles.spawnRingShatter(player.x, ring.y, ring.color);
-            particles.spawnShockwave(player.x, ring.y, 80, '#ffaa00');
-            particles.addFloatingText(player.x, ring.y - 30, `SMASH +${smashPoints}!`, '#ffaa00', 26);
-
-            player.meteorSmashesRemaining--;
-            if (player.meteorSmashesRemaining <= 0) {
-              this.deactivateMeteor(player);
-            }
-
-            onSmashRing?.(ring);
-          } else if (result.action === 'CRASH') {
-            if (player.invulnerableTimer && player.invulnerableTimer > 0) {
-              // Harmless glide through during invulnerability
-              ring.passed = true;
-              return;
-            }
-
-            if (player.shields && player.shields > 0) {
-              // Cosmic Energy Shield deflects the blow!
-              player.shields--;
-              player.invulnerableTimer = 1.0;
-              ring.passed = true;
-              sound.playShatter();
-              particles.spawnShockwave(player.x, ring.y, 90, '#00f0ff');
-              particles.addFloatingText(player.x, ring.y - 30, `KALKAN KORUDU! 🛡️`, '#00f0ff', 24);
-              player.scaleX = 1.35;
-              player.scaleY = 0.75;
-              player.vy = Math.min(player.vy, 220);
-              return;
-            }
-
-            // Option 3: Hitting a closed sector ends the game immediately when unshielded!
-            player.y = ring.y - 4;
-            player.vy = 0;
-            player.isMeteor = false;
-            sound.stopCatMusic();
-            sound.playCrash();
-            particles.spawnCrashExplosion(player.x, ring.y, '#ff0055');
-            onCrash?.();
-            return;
-          } else if (result.action === 'PASS_GAP') {
-            ring.passed = true;
-            player.consecutiveGaps++;
-            player.perfectDropStreak++;
-            player.currentDepth = ring.depth;
-            if (player.currentDepth > player.maxDepthAchieved) {
-              player.maxDepthAchieved = player.currentDepth;
-            }
-
-            // Hole color shift
-            player.colorThemeIndex = (player.colorThemeIndex + 1) % 7;
-
-            // Rhythmic forward acceleration like Piano Tiles (calm, continuous flow)
-            const targetPassSpeed = 260 + Math.min(player.consecutiveGaps, 10) * 18;
-            player.vy = Math.min(effectiveTerminalVelocity, Math.max(player.vy, targetPassSpeed));
-
-            player.comboMultiplier = Math.min(32, Math.round((player.comboMultiplier + 0.3) * 10) / 10);
-            const passPoints = Math.round(25 * player.comboMultiplier);
-            player.score += passPoints;
-
-            // Round Timer Bonus: +1.5s per gap passed
-            player.roundTimeRemaining = Math.min(player.roundTimeTotal, player.roundTimeRemaining + 1.5);
-
-            // 3 consecutive gaps triggers Meteor mode
-            if (player.consecutiveGaps >= 3 && !player.isMeteor) {
-              player.isMeteor = true;
-              player.meteorTimer = 4.0;
-              player.meteorMaxTimer = 4.0;
-              player.meteorSmashesRemaining = 4;
-              player.vy = Math.max(player.vy, this.meteorDiveSpeed);
-              player.roundTimeRemaining = Math.min(player.roundTimeTotal, player.roundTimeRemaining + 2.5);
-
-              sound.playMeteorIgnite();
-              sound.startCatMusic();
-              particles.spawnShockwave(player.x, ring.y, 100, '#ff3300');
-              particles.addFloatingText(player.x, ring.y - 45, 'METEOR CRUSH! +2.5s ⏱️', '#ff3300', 30);
-            } else {
-              sound.playPianoTileNote(player.consecutiveGaps);
-              particles.spawnPassSparks(player.x, ring.y, ring.color);
-              particles.addFloatingText(player.x, ring.y - 25, `+${passPoints}  +1.5s ⏱️`, '#00f0ff', 20);
-            }
-
-            player.scaleX = 0.8;
-            player.scaleY = 1.3;
-
-            onPassGap?.(ring);
-          }
-        }
-      }
-    }
-
-    player.y = newY;
-    player.isFallingFast = player.vy > 750 || player.isMeteor;
-
-    if (player.isMeteor) {
-      particles.spawnMeteorFlame(player.x, player.y);
-    }
-
-    // Collect gems
-    for (const g of gems) {
-      if (g.collected) continue;
-
-      const ring = rings.find((r) => r.id === g.ringId);
-      const ringRot = ring ? ring.rotation : 0;
-      const totalAngle = (g.angle + ringRot + player.cylinderRotation) % (Math.PI * 2);
-      const normalizedAngle = totalAngle < 0 ? totalAngle + Math.PI * 2 : totalAngle;
-
-      let diff = Math.abs(normalizedAngle - this.contactAngle);
-      if (diff > Math.PI) diff = Math.PI * 2 - diff;
-
-      if (diff < 0.35 && Math.abs(player.y - g.y) < 36) {
-        g.collected = true;
-        player.totalGems++;
-        const awarded = Math.round(g.value * player.comboMultiplier);
-        player.score += awarded;
-        sound.playGem(player.consecutiveGaps + 1);
-        particles.spawnGemExplosion(player.x, g.y, g.color);
-        particles.addFloatingText(player.x, g.y - 25, `💎 +${awarded}`, '#ffea00', 22);
-      }
+    if (distToCorner <= this.rPerfect) {
+      this.executeTurn(ball, world);
+      return 'PERFECT';
+    } else if (distToCorner <= this.rGood) {
+      this.executeTurn(ball, world);
+      return 'GOOD';
+    } else {
+      // Missed: turned too early or in empty space
+      ball.isFalling = true;
+      ball.vz = -50;
+      return 'MISS';
     }
   }
 
-  // Tri-Sector 120° Smart Directional Guidance (Left 120°, Right 120°, or Aligned 0°)
-  public getGuideDirection(player: Player, ring: Ring): GuideResult {
-    const sectorAngle = (Math.PI * 2) / 3;
+  private executeTurn(ball: Ball, world: WorldManager): void {
+    const nextIndex = ball.currentSegmentIndex + 1;
+    world.ensureSegmentsAhead(nextIndex + 15, Math.hypot(ball.vx, ball.vy) || this.baseSpeed);
 
-    // Current alignment (0 steps)
-    let curAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation)) % (Math.PI * 2);
-    if (curAngle < 0) curAngle += Math.PI * 2;
-    const curSeg = ring.segments[Math.floor(curAngle / sectorAngle) % 3];
-    if (curSeg?.type === 'GAP') {
-      return { step: 0, label: 'DÜŞÜŞ HAZIR' };
+    const nextSeg = world.segments[nextIndex];
+    const speed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
+
+    if (nextSeg) {
+      ball.dir = nextSeg.dir;
+      if (ball.dir === 'X') {
+        ball.vx = speed;
+        ball.vy = 0;
+      } else {
+        ball.vx = 0;
+        ball.vy = speed;
+      }
+      ball.currentSegmentIndex = nextIndex;
+    }
+    // Important: ball.x and ball.y are strictly PRESERVED (no position snapping)
+  }
+
+  public update(dt: number, ball: Ball, world: WorldManager): void {
+    // Fixed substep loop to prevent physics tunneling
+    let remaining = dt;
+    const maxSubStep = 0.02; // 20ms substeps
+    while (remaining > 0.0001) {
+      const step = Math.min(remaining, maxSubStep);
+      this.step(step, ball, world);
+      remaining -= step;
+    }
+  }
+
+  private step(stepDt: number, ball: Ball, world: WorldManager): void {
+    if (ball.isFalling) {
+      ball.vz -= this.gravity * stepDt;
+      ball.z += ball.vz * stepDt;
+      ball.x += ball.vx * stepDt;
+      ball.y += ball.vy * stepDt;
+      ball.fallTimer += stepDt;
+      return;
     }
 
-    // Test Step Left (-120°, A / Left half / Left Arrow)
-    let leftAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation - sectorAngle)) % (Math.PI * 2);
-    if (leftAngle < 0) leftAngle += Math.PI * 2;
-    const leftSeg = ring.segments[Math.floor(leftAngle / sectorAngle) % 3];
-    if (leftSeg?.type === 'GAP') {
-      return { step: -1, label: 'SOLA DÖNDÜR' };
+    ball.x += ball.vx * stepDt;
+    ball.y += ball.vy * stepDt;
+
+    const currSeg = world.segments[ball.currentSegmentIndex];
+    if (!currSeg) {
+      ball.isFalling = true;
+      ball.vz = -50;
+      return;
     }
 
-    // Otherwise, Step Right (+120°, D / Right half / Right Arrow)
-    return { step: 1, label: 'SAĞA DÖNDÜR' };
-  }
+    const halfTile = currSeg.tileWidth / 2;
 
-  public snapRotate(player: Player, dir: number): void {
-    const step = (Math.PI * 2) / 3;
-    this.applyRotation(player, dir * step);
-    sound.playSnapClick();
-  }
-
-  public deactivateMeteor(player: Player): void {
-    if (!player.isMeteor) return;
-    player.isMeteor = false;
-    player.meteorTimer = 0;
-    player.meteorSmashesRemaining = 0;
-    sound.stopCatMusic();
-    player.vy = Math.min(player.vy, 420);
-  }
-
-  public resolveRingCollision(player: Player, ring: Ring): CollisionResult {
-    let relAngle = (this.contactAngle - (ring.rotation + player.cylinderRotation)) % (Math.PI * 2);
-    if (relAngle < 0) relAngle += Math.PI * 2;
-
-    let targetSegment: RingSegment | undefined;
-    for (const seg of ring.segments) {
-      if (relAngle >= seg.startAngle && relAngle < seg.endAngle) {
-        targetSegment = seg;
-        break;
+    // Check overshoot past segment corner
+    if (currSeg.dir === 'X') {
+      if (ball.x > currSeg.end.x + halfTile) {
+        ball.isFalling = true;
+        ball.vz = -50;
+      } else if (Math.abs(ball.y - currSeg.end.y) > halfTile) {
+        ball.isFalling = true;
+        ball.vz = -50;
+      }
+    } else {
+      if (ball.y > currSeg.end.y + halfTile) {
+        ball.isFalling = true;
+        ball.vz = -50;
+      } else if (Math.abs(ball.x - currSeg.end.x) > halfTile) {
+        ball.isFalling = true;
+        ball.vz = -50;
       }
     }
-    if (!targetSegment) {
-      targetSegment = ring.segments[ring.segments.length - 1];
-    }
-
-    if (targetSegment.type === 'GAP' || targetSegment.hasObstacle === false) {
-      return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
-    }
-
-    // Small golden obstacle block collision check:
-    // Golden obstacle block is centered in the sector, leaving generous safe margin around it
-    const segMid = (targetSegment.startAngle + targetSegment.endAngle) / 2;
-    let diff = Math.abs(relAngle - segMid);
-    if (diff > Math.PI) diff = Math.PI * 2 - diff;
-
-    const blockHalfWidth = 0.55; // ~31.5° (compact golden block as in 1.png)
-    if (diff <= blockHalfWidth) {
-      if (player.isMeteor || player.isDiving) {
-        return { hit: true, ring, segment: targetSegment, action: 'SMASH' };
-      }
-      if (player.isGliding) {
-        // Air-Brake Glide energy shield absorbs the hit safely
-        return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
-      }
-      return { hit: true, ring, segment: targetSegment, action: 'CRASH' };
-    }
-
-    // Dodged the small golden obstacle: safely flows through the wide opening!
-    return { hit: false, ring, segment: targetSegment, action: 'PASS_GAP' };
-  }
-
-  public triggerSlamDive(player: Player): void {
-    player.isDiving = true;
-    player.diveTimer = 0.45;
-    player.scaleX = 0.7;
-    player.scaleY = 1.45;
-    player.vy = Math.max(player.vy, 720);
-    sound.playShatter();
-  }
-
-  public triggerAirGlide(player: Player): void {
-    player.isGliding = true;
-    player.glideTimer = 0.55;
-    player.scaleX = 1.35;
-    player.scaleY = 0.8;
-    player.vy = Math.max(180, player.vy * 0.65);
-    sound.playSnapClick();
-  }
-
-  public applyRotation(player: Player, deltaAngle: number): void {
-    player.cylinderRotation = (player.cylinderRotation + deltaAngle) % (Math.PI * 2);
-    if (player.cylinderRotation < 0) {
-      player.cylinderRotation += Math.PI * 2;
-    }
-  }
-
-  public applySteering(player: Player, dir: number, dt: number): void {
-    const steerSpeed = 4.2;
-    this.applyRotation(player, dir * steerSpeed * dt);
   }
 }
