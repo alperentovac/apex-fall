@@ -79,29 +79,18 @@ export class PhysicsEngine {
       ball.currentSegmentIndex = nextIndex;
 
       // Platform alignment & lateral boundary protection:
-      // When turning into nextSeg, clamp lateral position to stay safely on the new corridor.
-      const isRapidBurst = nextSeg.patternType === 'RAPID_BURST';
+      // Keep ball safely on corridor without hard teleporting, allowing a natural smooth turn
       const maxLateralOffset = nextSeg.tileWidth * 0.45;
 
       if (nextSeg.dir === 'X') {
-        if (isRapidBurst) {
-          ball.y = nextSeg.start.y;
-          ball.x = Math.max(ball.x, nextSeg.start.x);
-        } else {
-          const latDiff = ball.y - nextSeg.start.y;
-          if (Math.abs(latDiff) > maxLateralOffset) {
-            ball.y = nextSeg.start.y + Math.sign(latDiff) * maxLateralOffset;
-          }
+        const latDiff = ball.y - nextSeg.start.y;
+        if (Math.abs(latDiff) > maxLateralOffset) {
+          ball.y = nextSeg.start.y + Math.sign(latDiff) * maxLateralOffset;
         }
       } else {
-        if (isRapidBurst) {
-          ball.x = nextSeg.start.x;
-          ball.y = Math.max(ball.y, nextSeg.start.y);
-        } else {
-          const latDiff = ball.x - nextSeg.start.x;
-          if (Math.abs(latDiff) > maxLateralOffset) {
-            ball.x = nextSeg.start.x + Math.sign(latDiff) * maxLateralOffset;
-          }
+        const latDiff = ball.x - nextSeg.start.x;
+        if (Math.abs(latDiff) > maxLateralOffset) {
+          ball.x = nextSeg.start.x + Math.sign(latDiff) * maxLateralOffset;
         }
       }
     }
@@ -137,8 +126,8 @@ export class PhysicsEngine {
     const currentSpeed = Math.hypot(ball.vx, ball.vy) || this.baseSpeed;
     const speedRatio = Math.min(1, Math.max(0, (currentSpeed - this.baseSpeed) / (this.maxSpeed - this.baseSpeed)));
 
-    // Adaptive lane centering: snappier centering at high speeds
-    const centeringSpeed = 8 + speedRatio * 6;
+    // Adaptive lane centering: smooth and progressive, pulling ball naturally into groove
+    const centeringSpeed = 12 + speedRatio * 8;
     if (currSeg.dir === 'X') {
       ball.y += (currSeg.end.y - ball.y) * (1 - Math.exp(-centeringSpeed * stepDt));
     } else {

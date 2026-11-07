@@ -245,7 +245,15 @@ export class Game {
     }
 
     if (this.state === 'PLAYING') {
+      const prevPos = { x: this.ball.x, y: this.ball.y };
+      const prevSeg = this.world.segments[this.ball.currentSegmentIndex];
+      const corner = prevSeg ? { x: prevSeg.end.x, y: prevSeg.end.y } : { ...prevPos };
+
       const result = this.physics.evaluateTurn(this.ball, this.world);
+      if (result === 'PERFECT' || result === 'GOOD') {
+        this.juice.triggerTurnArc(prevPos, corner);
+      }
+
       if (result === 'PERFECT') {
         this.combo++;
         // Exactly 1 score per turn
@@ -318,9 +326,10 @@ export class Game {
 
       this.physics.update(dt, this.ball, this.world);
 
-      // Record visual trail
+      // Record visual trail using smooth visual position
+      const visualBall = this.juice.getVisualBallPosition(this.ball);
       if (!this.ball.isFalling) {
-        this.ballTrail.unshift({ x: this.ball.x, y: this.ball.y, z: this.ball.z, alpha: 1.0 });
+        this.ballTrail.unshift({ x: visualBall.x, y: visualBall.y, z: visualBall.z, alpha: 1.0 });
         if (this.ballTrail.length > 25) {
           this.ballTrail.pop();
         }
@@ -351,13 +360,20 @@ export class Game {
     const viewport = { width, height };
 
     const renderCamera = this.juice.getRenderCamera();
+    const visualBallPos = this.juice.getVisualBallPosition(this.ball);
+    const renderBall: Ball = {
+      ...this.ball,
+      x: visualBallPos.x,
+      y: visualBallPos.y,
+      z: visualBallPos.z
+    };
 
     this.renderer.draw(
       this.ctx,
       viewport,
       renderCamera,
       this.world,
-      this.ball,
+      renderBall,
       this.ballTrail,
       this.particles,
       this.state,
